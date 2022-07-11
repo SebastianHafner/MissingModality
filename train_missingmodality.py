@@ -54,6 +54,9 @@ def run_training(cfg):
     # tracking variables
     global_step = epoch_float = 0
 
+    evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step)
+    evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step)
+
     for epoch in range(1, epochs + 1):
         print(f'Starting epoch {epoch}/{epochs}.')
 
@@ -110,12 +113,8 @@ def run_training(cfg):
             global_step += 1
             epoch_float = global_step / steps_per_epoch
 
-            if cfg.DEBUG:
-                break
-
             if global_step % cfg.LOG_FREQ == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
-
                 # evaluation on sample of training and validation set
                 evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step)
                 evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step)
@@ -123,6 +122,8 @@ def run_training(cfg):
                 # logging
                 time = timeit.default_timer() - start
                 wandb.log({
+                    'sup_complete_loss': np.mean(sup_complete_loss_set),
+                    'sup_incomplete_loss': np.mean(sup_incomplete_loss_set),
                     'sup_loss': np.mean(sup_loss_set),
                     'sim_loss': np.mean(sim_loss_set) if len(sim_loss_set) > 0 else 0,
                     'loss': np.mean(loss_set),
@@ -132,8 +133,8 @@ def run_training(cfg):
                     'epoch': epoch_float,
                 })
                 start = timeit.default_timer()
+                loss_set, sup_complete_loss_set, sup_incomplete_loss_set, sup_loss_set, sim_loss_set = [], [], [], [], []
                 n_total = n_incomplete = 0
-                loss_set, sup_loss_set, sim_loss_set = [], [], []
             # end of batch
 
         if not cfg.DEBUG:

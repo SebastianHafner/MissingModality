@@ -17,14 +17,8 @@ def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float,
         for step, item in enumerate(dataloader):
             x_s1 = item['x_s1'].to(device)
             x_s2 = item['x_s2'].to(device)
-            if cfg.DATALOADER.INPUT_MODE == 's1':
-                logits = net(x_s1)
-            elif cfg.DATALOADER.INPUT_MODE == 's2':
-                logits = net(x_s2)
-            else:
-                logits = net(x_s1, x_s2)
+            logits = net(x_s1, x_s2)
             y_pred = torch.sigmoid(logits)
-
             gt = item['y'].to(device)
             measurer.add_sample(gt.detach(), y_pred.detach())
 

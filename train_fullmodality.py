@@ -54,6 +54,9 @@ def run_training(cfg):
     # tracking variables
     global_step = epoch_float = 0
 
+    evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step)
+    evaluation.model_evaluation_fullmodality(net, cfg, device, 'test', epoch_float, global_step)
+
     for epoch in range(1, epochs + 1):
         print(f'Starting epoch {epoch}/{epochs}.')
 
@@ -86,21 +89,17 @@ def run_training(cfg):
             global_step += 1
             epoch_float = global_step / steps_per_epoch
 
-            if cfg.DEBUG:
-                evaluation.model_evaluation(net, cfg, device, 'test', epoch_float, global_step)
-                break
-
             if global_step % cfg.LOG_FREQ == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
                 # evaluation on sample of training and validation set
-                evaluation.model_evaluation(net, cfg, device, 'training', epoch_float, global_step)
-                evaluation.model_evaluation(net, cfg, device, 'validation', epoch_float, global_step)
+                evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step)
+                evaluation.model_evaluation_fullmodality(net, cfg, device, 'test', epoch_float, global_step)
 
                 # logging
                 time = timeit.default_timer() - start
                 wandb.log({
                     'loss': np.mean(loss_set),
-                    'labeled_percentage': 100,
+                    'missing_percentage': 0,
                     'time': time,
                     'step': global_step,
                     'epoch': epoch_float,
@@ -112,9 +111,8 @@ def run_training(cfg):
         assert (epoch == epoch_float)
         print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
         # evaluation at the end of an epoch
-        evaluation.model_evaluation(net, cfg, device, 'training', epoch_float, global_step)
-        evaluation.model_evaluation(net, cfg, device, 'validation', epoch_float, global_step)
-        evaluation.model_evaluation(net, cfg, device, 'test', epoch_float, global_step)
+        evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step)
+        evaluation.model_evaluation_fullmodality(net, cfg, device, 'test', epoch_float, global_step)
 
         if epoch in save_checkpoints and not cfg.DEBUG:
             print(f'saving network', flush=True)
