@@ -1,0 +1,30 @@
+_BASE_: "missingmodality_base.yaml"
+DEBUG: False
+
+CHECKPOINTS:
+  SAVE: [15]
+  INFERENCE: 15
+
+LOGGING:
+  FREQUENCY: 10
+  MAX_SAMPLES: 10
+
+TRAINER:
+  LR: 1e-4
+  BATCH_SIZE: 2
+  EPOCHS: 5
+
+MODEL:
+  TYPE: 'reconstructionnet_v1'
+  TOPOLOGY: [64, 128,]
+
+RECONSTRUCTION_TRAINER:
+  LOSS_TYPE: 'L2'
+  ALPHA: 0.99
+
+DATALOADER:
+  INPUT_MODE: 's1s2'  # 's1', 's2' or 's1s2'
+  INCLUDE_INCOMPLETE: True
+
+AUGMENTATION:
+  CROP_SIZE: 64

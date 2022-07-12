@@ -48,7 +48,7 @@ def run_training(cfg):
 
     # unpacking cfg
     epochs = cfg.TRAINER.EPOCHS
-    save_checkpoints = cfg.SAVE_CHECKPOINTS
+    save_checkpoints = cfg.CHECKPOINTS.SAVE
     steps_per_epoch = len(dataloader)
 
     # tracking variables
@@ -75,6 +75,8 @@ def run_training(cfg):
 
             features_s1, features_s2, features_s2_recon = net(x_s1, x_s2)
 
+            sup_complete_loss = sup_incomplete_loss = sim_loss = None
+
             missing_modality = batch['missing_modality']
             complete_modality = torch.logical_not(missing_modality)
             n_total += torch.numel(missing_modality)
@@ -87,24 +89,28 @@ def run_training(cfg):
                 sup_complete_loss_set.append(sup_complete_loss.item())
 
                 sim_loss = sim_criterion(features_s2[complete_modality, ], features_s2_recon[complete_modality, ])
-                sim_loss = (1 - cfg.RECONSTRUCTION_TRAINER.ALPHA) * sim_loss
                 sim_loss_set.append(sim_loss.item())
-            else:
-                sup_complete_loss = 0
-                sim_loss = 0
 
             if missing_modality.any():
                 features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
                 logits_incomplete = net.module.outc(features_fusion[missing_modality, ])
                 sup_incomplete_loss = sup_criterion(logits_incomplete, y[missing_modality, ])
                 sup_incomplete_loss_set.append(sup_incomplete_loss.item())
+
+            if sup_complete_loss is None:
+                sup_loss = sup_incomplete_loss
+            elif sup_incomplete_loss is None:
+                sup_loss = sup_complete_loss
             else:
-                sup_incomplete_loss = 0
+                sup_loss = sup_complete_loss + sup_incomplete_loss
+            sup_loss_set.append(sup_loss.item())
 
-            sup_loss = sup_complete_loss + sup_incomplete_loss
-            sup_loss = cfg.RECONSTRUCTION_TRAINER.ALPHA * sup_loss
+            if sim_loss is None:
+                loss = sup_loss
+            else:
+                alpha = cfg.RECONSTRUCTION_TRAINER.ALPHA
+                loss = alpha * sup_loss + (1 - alpha) * sim_loss
 
-            loss = sup_loss + sim_loss
             loss.backward()
             optimizer.step()
 
@@ -113,7 +119,7 @@ def run_training(cfg):
             global_step += 1
             epoch_float = global_step / steps_per_epoch
 
-            if global_step % cfg.LOG_FREQ == 0:
+            if global_step % cfg.LOGGING.FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
                 # evaluation on sample of training and validation set
                 evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step)
