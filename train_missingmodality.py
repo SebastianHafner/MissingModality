@@ -93,11 +93,10 @@ def run_training(cfg):
                 sim_loss = sim_criterion(features_s2[complete_modality, ], features_s2_recon[complete_modality, ])
                 sim_loss_set.append(sim_loss.item())
 
-            if missing_modality.any():
-                features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
-                logits_incomplete = net.module.outc(features_fusion[missing_modality, ])
-                sup_incomplete_loss = sup_criterion(logits_incomplete, y[missing_modality, ])
-                sup_incomplete_loss_set.append(sup_incomplete_loss.item())
+            features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
+            logits_incomplete = net.module.outc(features_fusion[missing_modality, ])
+            sup_incomplete_loss = sup_criterion(logits_incomplete, y[missing_modality, ])
+            sup_incomplete_loss_set.append(sup_incomplete_loss.item())
 
             if sup_complete_loss is None:
                 sup_loss = sup_incomplete_loss
