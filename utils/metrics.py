@@ -65,6 +65,9 @@ class MultiThresholdMetric(object):
         denom = (self.precision + self.recall).clamp(10e-05)
         return 2 * self.precision * self.recall / denom
 
+    def is_empty(self):
+        return True if (self.TP + self.TN + self.FP + self.FN) == 0 else False
+
 
 def true_pos(y_true: torch.Tensor, y_pred: torch.Tensor, dim=0):
     return torch.sum(y_true * torch.round(y_pred), dim=dim)  # Only sum along H, W axis, assuming no C

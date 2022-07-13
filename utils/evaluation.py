@@ -4,7 +4,7 @@ import wandb
 from utils import datasets, metrics
 
 
-def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float, step: int):
+def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float, step: int, max_samples: int = None):
     net.to(device)
     net.eval()
 
@@ -13,6 +13,10 @@ def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float,
 
     ds = datasets.BuildingDataset(cfg, run_type, no_augmentations=True)
     dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
+
+    max_samples = len(ds) if max_samples is None or max_samples > len(ds) else max_samples
+    samples_counter = 0
+
     with torch.no_grad():
         for step, item in enumerate(dataloader):
             x_s1 = item['x_s1'].to(device)
@@ -21,6 +25,10 @@ def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float,
             y_pred = torch.sigmoid(logits)
             gt = item['y'].to(device)
             measurer.add_sample(gt.detach(), y_pred.detach())
+
+            samples_counter += 1
+            if samples_counter == max_samples:
+                break
 
     f1s = measurer.compute_f1()
     precisions, recalls = measurer.precision, measurer.recall
@@ -38,7 +46,7 @@ def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float,
     })
 
 
-def model_evaluation_missingmodality(net, cfg, device, run_type: str, epoch: float, step: int):
+def model_evaluation_missingmodality(net, cfg, device, run_type: str, epoch: float, step: int, max_samples: int = None):
     net.to(device)
     net.eval()
 
@@ -49,6 +57,10 @@ def model_evaluation_missingmodality(net, cfg, device, run_type: str, epoch: flo
 
     ds = datasets.BuildingDataset(cfg, run_type, no_augmentations=True)
     dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
+
+    max_samples = len(ds) if max_samples is None or max_samples > len(ds) else max_samples
+    samples_counter = 0
+
     with torch.no_grad():
         for step, item in enumerate(dataloader):
             x_s1 = item['x_s1'].to(device)
@@ -74,20 +86,25 @@ def model_evaluation_missingmodality(net, cfg, device, run_type: str, epoch: flo
                 measurer_incomplete.add_sample(y[missing_modality, ], y_pred_incomplete[missing_modality, ])
                 measurer_all.add_sample(y[missing_modality, ], y_pred_incomplete[missing_modality, ])
 
+            samples_counter += 1
+            if samples_counter == max_samples:
+                break
+
     for measurer, name in zip((measurer_complete, measurer_incomplete, measurer_all),
                               ['fullmodality', 'missingmodality', 'all']):
-        f1s = measurer.compute_f1()
-        precisions, recalls = measurer.precision, measurer.recall
+        if not measurer.is_empty():
+            f1s = measurer.compute_f1()
+            precisions, recalls = measurer.precision, measurer.recall
 
-        f1 = f1s.max().item()
-        argmax_f1 = f1s.argmax()
-        precision = precisions[argmax_f1].item()
-        recall = recalls[argmax_f1].item()
+            f1 = f1s.max().item()
+            argmax_f1 = f1s.argmax()
+            precision = precisions[argmax_f1].item()
+            recall = recalls[argmax_f1].item()
 
-        wandb.log({
-            f'{run_type} {name} F1': f1,
-            f'{run_type} {name} precision': precision,
-            f'{run_type} {name} recall': recall,
-            'step': step, 'epoch': epoch,
-        })
+            wandb.log({
+                f'{run_type} {name} F1': f1,
+                f'{run_type} {name} precision': precision,
+                f'{run_type} {name} recall': recall,
+                'step': step, 'epoch': epoch,
+            })
 

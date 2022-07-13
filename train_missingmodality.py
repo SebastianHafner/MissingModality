@@ -54,8 +54,10 @@ def run_training(cfg):
     # tracking variables
     global_step = epoch_float = 0
 
-    evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step)
-    evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step)
+    evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step,
+                                                cfg.LOGGING.EPOCH_MAX_SAMPLES)
+    evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step,
+                                                cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
     for epoch in range(1, epochs + 1):
         print(f'Starting epoch {epoch}/{epochs}.')
@@ -119,11 +121,13 @@ def run_training(cfg):
             global_step += 1
             epoch_float = global_step / steps_per_epoch
 
-            if global_step % cfg.LOGGING.FREQUENCY == 0:
+            if global_step % cfg.LOGGING.STEP_FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
                 # evaluation on sample of training and validation set
-                evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step)
-                evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step)
+                evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step,
+                                                            cfg.LOGGING.STEP_MAX_SAMPLES)
+                evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step,
+                                                            cfg.LOGGING.STEP_MAX_SAMPLES)
 
                 # logging
                 time = timeit.default_timer() - start
@@ -146,9 +150,12 @@ def run_training(cfg):
         if not cfg.DEBUG:
             assert (epoch == epoch_float)
         print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
-        # evaluation at the end of an epoch
-        evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step)
-        evaluation.model_evaluation_missingmodality(net, cfg, device, 'test', epoch_float, global_step)
+        if epoch_float % cfg.LOGGING.EPOCH_FREQUENCY == 0:
+            # evaluation at the end of an epoch
+            evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step,
+                                                        cfg.LOGGING.EPOCH_MAX_SAMPLES)
+            evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step,
+                                                        cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
         if epoch in save_checkpoints:
             print(f'saving network', flush=True)
