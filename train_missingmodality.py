@@ -148,7 +148,6 @@ def run_training(cfg):
 
         if not cfg.DEBUG:
             assert (epoch == epoch_float)
-        print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
         if epoch_float % cfg.LOGGING.EPOCH_FREQUENCY == 0:
             # evaluation at the end of an epoch
             evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step,

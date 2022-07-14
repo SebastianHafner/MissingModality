@@ -83,8 +83,8 @@ def model_evaluation_missingmodality(net, cfg, device, run_type: str, epoch: flo
                 features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
                 logits_incomplete = net.module.outc(features_fusion[missing_modality, ])
                 y_pred_incomplete = torch.sigmoid(logits_incomplete)
-                measurer_incomplete.add_sample(y[missing_modality, ], y_pred_incomplete[missing_modality, ])
-                measurer_all.add_sample(y[missing_modality, ], y_pred_incomplete[missing_modality, ])
+                measurer_incomplete.add_sample(y[missing_modality, ].detach(), y_pred_incomplete.detach())
+                measurer_all.add_sample(y[missing_modality, ].detach(), y_pred_incomplete.detach())
 
             samples_counter += 1
             if samples_counter == max_samples:
