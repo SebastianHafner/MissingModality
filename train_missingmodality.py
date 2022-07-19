@@ -73,54 +73,56 @@ def run_training(cfg):
             net.train()
             optimizer.zero_grad()
 
-            x_s1 = batch['x_s1'].to(device)
-            x_s2 = batch['x_s2'].to(device)
-            y = batch['y'].to(device)
+            with torch.autocast(enabled=False):
 
-            features_s1, features_s2, features_s2_recon = net(x_s1, x_s2)
+                x_s1 = batch['x_s1'].to(device)
+                x_s2 = batch['x_s2'].to(device)
+                y = batch['y'].to(device)
 
-            sup_complete_loss = sup_incomplete_loss = sim_loss = None
+                features_s1, features_s2, features_s2_recon = net(x_s1, x_s2)
 
-            missing_modality = batch['missing_modality']
-            complete_modality = torch.logical_not(missing_modality)
-            n_total += torch.numel(missing_modality)
-            n_incomplete += torch.sum(missing_modality).item()
+                sup_complete_loss = sup_incomplete_loss = sim_loss = None
 
-            if complete_modality.any():
-                features_fusion = torch.concat((features_s1, features_s2), dim=1)
-                logits_complete = net.module.outc(features_fusion[complete_modality, ])
-                sup_complete_loss = sup_criterion(logits_complete, y[complete_modality, ])
-                sup_complete_loss_set.append(sup_complete_loss.item())
+                missing_modality = batch['missing_modality']
+                complete_modality = torch.logical_not(missing_modality)
+                n_total += torch.numel(missing_modality)
+                n_incomplete += torch.sum(missing_modality).item()
 
-                sim_loss = sim_criterion(features_s2[complete_modality, ], features_s2_recon[complete_modality, ])
-                sim_loss_set.append(sim_loss.item())
+                if complete_modality.any():
+                    features_fusion = torch.concat((features_s1, features_s2), dim=1)
+                    logits_complete = net.module.outc(features_fusion[complete_modality, ])
+                    sup_complete_loss = sup_criterion(logits_complete, y[complete_modality, ])
+                    sup_complete_loss_set.append(sup_complete_loss.item())
 
-            features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
-            logits_incomplete = net.module.outc(features_fusion[missing_modality, ])
-            sup_incomplete_loss = sup_criterion(logits_incomplete, y[missing_modality, ])
-            sup_incomplete_loss_set.append(sup_incomplete_loss.item())
+                    sim_loss = sim_criterion(features_s2[complete_modality, ], features_s2_recon[complete_modality, ])
+                    sim_loss_set.append(sim_loss.item())
 
-            if sup_complete_loss is None:
-                sup_loss = sup_incomplete_loss
-            elif sup_incomplete_loss is None:
-                sup_loss = sup_complete_loss
-            else:
-                sup_loss = sup_complete_loss + sup_incomplete_loss
-            sup_loss_set.append(sup_loss.item())
+                features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
+                logits_incomplete = net.module.outc(features_fusion[missing_modality, ])
+                sup_incomplete_loss = sup_criterion(logits_incomplete, y[missing_modality, ])
+                sup_incomplete_loss_set.append(sup_incomplete_loss.item())
 
-            if sim_loss is None:
-                loss = sup_loss
-            else:
-                alpha = cfg.RECONSTRUCTION_TRAINER.ALPHA
-                loss = alpha * sup_loss + (1 - alpha) * sim_loss
+                if sup_complete_loss is None:
+                    sup_loss = sup_incomplete_loss
+                elif sup_incomplete_loss is None:
+                    sup_loss = sup_complete_loss
+                else:
+                    sup_loss = sup_complete_loss + sup_incomplete_loss
+                sup_loss_set.append(sup_loss.item())
 
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
+                if sim_loss is None:
+                    loss = sup_loss
+                else:
+                    alpha = cfg.RECONSTRUCTION_TRAINER.ALPHA
+                    loss = alpha * sup_loss + (1 - alpha) * sim_loss
 
-            torch.nn.utils.clip_grad_norm_(net.parameters(), clip)
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
 
-            scaler.step(optimizer)
-            scaler.update()
+                torch.nn.utils.clip_grad_norm_(net.parameters(), clip)
+
+                scaler.step(optimizer)
+                scaler.update()
 
             # loss.backward()
             # optimizer.step()
