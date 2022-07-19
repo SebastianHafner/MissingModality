@@ -73,7 +73,7 @@ def run_training(cfg):
             net.train()
             optimizer.zero_grad()
 
-            with torch.autocast(enabled=False):
+            with torch.autocast(device, enabled=False):
 
                 x_s1 = batch['x_s1'].to(device)
                 x_s2 = batch['x_s2'].to(device)
