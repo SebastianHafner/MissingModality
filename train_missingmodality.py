@@ -59,6 +59,8 @@ def run_training(cfg):
     evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step,
                                                 cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
+    scaler = torch.cuda.amp.GradScaler()
+    clip = 1
     for epoch in range(1, epochs + 1):
         print(f'Starting epoch {epoch}/{epochs}.')
 
@@ -112,8 +114,16 @@ def run_training(cfg):
                 alpha = cfg.RECONSTRUCTION_TRAINER.ALPHA
                 loss = alpha * sup_loss + (1 - alpha) * sim_loss
 
-            loss.backward()
-            optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+
+            torch.nn.utils.clip_grad_norm_(net.parameters(), clip)
+
+            scaler.step(optimizer)
+            scaler.update()
+
+            # loss.backward()
+            # optimizer.step()
 
             loss_set.append(loss.item())
 

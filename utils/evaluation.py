@@ -9,7 +9,9 @@ def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float,
     net.eval()
 
     thresholds = torch.linspace(0.5, 1, 1).to(device)
-    measurer = metrics.MultiThresholdMetric(thresholds)
+    measurer_complete = metrics.MultiThresholdMetric(thresholds)
+    measurer_incomplete = metrics.MultiThresholdMetric(thresholds)
+    measurer_all = metrics.MultiThresholdMetric(thresholds)
 
     ds = datasets.BuildingDataset(cfg, run_type, no_augmentations=True)
     dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
@@ -24,26 +26,36 @@ def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float,
             logits = net(x_s1, x_s2)
             y_pred = torch.sigmoid(logits)
             gt = item['y'].to(device)
-            measurer.add_sample(gt.detach(), y_pred.detach())
+
+            measurer_all.add_sample(gt.detach(), y_pred.detach())
+
+            missing_modality = item['missing_modality']
+            if missing_modality:
+                measurer_incomplete.add_sample(gt.detach(), y_pred.detach())
+            else:
+                measurer_complete.add_sample(gt.detach(), y_pred.detach())
 
             samples_counter += 1
             if samples_counter == max_samples:
                 break
 
-    f1s = measurer.compute_f1()
-    precisions, recalls = measurer.precision, measurer.recall
+    for measurer, name in zip((measurer_complete, measurer_incomplete, measurer_all),
+                              ['fullmodality', 'missingmodality', 'all']):
+        if not measurer.is_empty():
+            f1s = measurer.compute_f1()
+            precisions, recalls = measurer.precision, measurer.recall
 
-    f1 = f1s.max().item()
-    argmax_f1 = f1s.argmax()
-    precision = precisions[argmax_f1].item()
-    recall = recalls[argmax_f1].item()
+            f1 = f1s.max().item()
+            argmax_f1 = f1s.argmax()
+            precision = precisions[argmax_f1].item()
+            recall = recalls[argmax_f1].item()
 
-    wandb.log({
-        f'{run_type} F1': f1,
-        f'{run_type} precision': precision,
-        f'{run_type} recall': recall,
-        'step': step, 'epoch': epoch,
-    })
+            wandb.log({
+                f'{run_type} {name} F1': f1,
+                f'{run_type} {name} precision': precision,
+                f'{run_type} {name} recall': recall,
+                'step': step, 'epoch': epoch,
+            })
 
 
 def model_evaluation_missingmodality(net, cfg, device, run_type: str, epoch: float, step: int, max_samples: int = None):

@@ -48,14 +48,16 @@ def run_training(cfg):
 
     # unpacking cfg
     epochs = cfg.TRAINER.EPOCHS
-    save_checkpoints = cfg.SAVE_CHECKPOINTS
+    save_checkpoints = cfg.CHECKPOINTS.SAVE
     steps_per_epoch = len(dataloader)
 
     # tracking variables
     global_step = epoch_float = 0
 
-    evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step)
-    evaluation.model_evaluation_fullmodality(net, cfg, device, 'test', epoch_float, global_step)
+    evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step,
+                                             cfg.LOGGING.EPOCH_MAX_SAMPLES)
+    evaluation.model_evaluation_fullmodality(net, cfg, device, 'validation', epoch_float, global_step,
+                                             cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
     for epoch in range(1, epochs + 1):
         print(f'Starting epoch {epoch}/{epochs}.')
@@ -71,12 +73,7 @@ def run_training(cfg):
             x_s1 = batch['x_s1'].to(device)
             x_s2 = batch['x_s2'].to(device)
 
-            if cfg.DATALOADER.INPUT_MODE == 's1':
-                logits = net(x_s1)
-            elif cfg.DATALOADER.INPUT_MODE == 's2':
-                logits = net(x_s2)
-            else:
-                logits = net(x_s1, x_s2)
+            logits = net(x_s1, x_s2)
 
             gt = batch['y'].to(device)
 
@@ -92,8 +89,10 @@ def run_training(cfg):
             if global_step % cfg.LOG_FREQ == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
                 # evaluation on sample of training and validation set
-                evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step)
-                evaluation.model_evaluation_fullmodality(net, cfg, device, 'test', epoch_float, global_step)
+                evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step,
+                                                         cfg.LOGGING.STEP_MAX_SAMPLES)
+                evaluation.model_evaluation_fullmodality(net, cfg, device, 'validation', epoch_float, global_step,
+                                                         cfg.LOGGING.STEP_MAX_SAMPLES)
 
                 # logging
                 time = timeit.default_timer() - start
@@ -111,8 +110,10 @@ def run_training(cfg):
         assert (epoch == epoch_float)
         print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
         # evaluation at the end of an epoch
-        evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step)
-        evaluation.model_evaluation_fullmodality(net, cfg, device, 'test', epoch_float, global_step)
+        evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step,
+                                                 cfg.LOGGING.EPOCH_MAX_SAMPLES)
+        evaluation.model_evaluation_fullmodality(net, cfg, device, 'validation', epoch_float, global_step,
+                                                 cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
         if epoch in save_checkpoints and not cfg.DEBUG:
             print(f'saving network', flush=True)
