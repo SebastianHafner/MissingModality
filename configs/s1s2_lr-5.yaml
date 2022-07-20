@@ -1,0 +1,6 @@
+_BASE_: "s1s2.yaml"
+DEBUG: False
+
+TRAINER:
+  LR: 1e-5
+  BATCH_SIZE: 8

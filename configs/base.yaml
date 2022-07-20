@@ -14,7 +14,7 @@ LOGGING:
 TRAINER:
   LR: 1e-4
   BATCH_SIZE: 8
-  EPOCHS: 15
+  EPOCHS: 10
   OPTIMIZER: 'adamw'
   LOSS_TYPE: 'PowerJaccardLoss'
 
