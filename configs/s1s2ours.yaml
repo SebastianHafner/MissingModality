@@ -1,0 +1,14 @@
+_BASE_: "base.yaml"
+DEBUG: False
+
+MODEL:
+  TYPE: 'reconstructionnet_v1'
+  TOPOLOGY: [64, 128,]
+
+RECONSTRUCTION_TRAINER:
+  LOSS_TYPE: 'L2'
+  ALPHA: 0.5
+
+DATALOADER:
+  INPUT_MODE: 's1s2'
+  INCLUDE_INCOMPLETE: True

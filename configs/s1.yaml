@@ -1,0 +1,9 @@
+_BASE_: "base.yaml"
+DEBUG: False
+
+MODEL:
+  TYPE: 'unet'
+  TOPOLOGY: [64, 128,]
+
+DATALOADER:
+  INPUT_MODE: 's1'

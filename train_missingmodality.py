@@ -165,7 +165,7 @@ def run_training(cfg):
             evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step,
                                                         cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
-        if epoch in save_checkpoints:
+        if epoch in save_checkpoints and not cfg.DEBUG:
             print(f'saving network', flush=True)
             networks.save_checkpoint(net, optimizer, epoch, global_step, cfg)
 

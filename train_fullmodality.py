@@ -86,7 +86,7 @@ def run_training(cfg):
             global_step += 1
             epoch_float = global_step / steps_per_epoch
 
-            if global_step % cfg.LOG_FREQ == 0:
+            if global_step % cfg.LOGGING.STEP_FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
                 # evaluation on sample of training and validation set
                 evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step,
@@ -107,13 +107,14 @@ def run_training(cfg):
                 loss_set = []
             # end of batch
 
-        assert (epoch == epoch_float)
-        print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
-        # evaluation at the end of an epoch
-        evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step,
-                                                 cfg.LOGGING.EPOCH_MAX_SAMPLES)
-        evaluation.model_evaluation_fullmodality(net, cfg, device, 'validation', epoch_float, global_step,
-                                                 cfg.LOGGING.EPOCH_MAX_SAMPLES)
+        if not cfg.DEBUG:
+            assert (epoch == epoch_float)
+        if epoch_float % cfg.LOGGING.EPOCH_FREQUENCY == 0:
+            # evaluation at the end of an epoch
+            evaluation.model_evaluation_fullmodality(net, cfg, device, 'training', epoch_float, global_step,
+                                                     cfg.LOGGING.EPOCH_MAX_SAMPLES)
+            evaluation.model_evaluation_fullmodality(net, cfg, device, 'validation', epoch_float, global_step,
+                                                     cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
         if epoch in save_checkpoints and not cfg.DEBUG:
             print(f'saving network', flush=True)
