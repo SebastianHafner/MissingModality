@@ -41,7 +41,7 @@ def model_evaluation_fullmodality(net, cfg, device, run_type: str, epoch: float,
 
     for measurer, name in zip((measurer_complete, measurer_incomplete, measurer_all),
                               ['fullmodality', 'missingmodality', 'all']):
-        if not measurer.is_empty():
+        if not measurer.is_empty() and not (name == 'fullmodality' and cfg.DATALOADER.INPUT_MODE == 's1s2'):
             f1s = measurer.compute_f1()
             precisions, recalls = measurer.precision, measurer.recall
 
