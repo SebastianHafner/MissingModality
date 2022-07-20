@@ -7,7 +7,7 @@ from utils import experiment_manager, networks, datasets, metrics, geofiles, par
 
 def quantitative_assessment_fullmodality(cfg: experiment_manager.CfgNode, run_type: str = 'validation'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    net, *_ = networks.load_checkpoint(cfg.INFERENCE_CHECKPOINT, cfg, device)
+    net, *_ = networks.load_checkpoint(cfg.CHECKPOINTS.INFERENCE, cfg, device)
     net.eval()
     ds = datasets.BuildingDataset(cfg, run_type, no_augmentations=True)
 
@@ -38,11 +38,12 @@ def quantitative_assessment_fullmodality(cfg: experiment_manager.CfgNode, run_ty
     y_trues_all = torch.cat(y_trues_all).cpu().numpy()
     y_preds_all = torch.cat(y_preds_all).cpu().numpy()
 
+    y_trues_incomplete = torch.cat(y_trues_incomplete).cpu().numpy()
     y_preds_incomplete = torch.cat(y_preds_incomplete).cpu().numpy()
-    y_trues_incomplete = torch.cat(y_preds_incomplete).cpu().numpy()
 
+    y_trues_complete = torch.cat(y_trues_complete).cpu().numpy()
     y_preds_complete = torch.cat(y_preds_complete).cpu().numpy()
-    y_trues_complete = torch.cat(y_preds_complete).cpu().numpy()
+
 
     file = Path(cfg.PATHS.OUTPUT) / 'testing' / f'quantitative_results_{run_type}.json'
     if not file.exists():
@@ -51,27 +52,27 @@ def quantitative_assessment_fullmodality(cfg: experiment_manager.CfgNode, run_ty
         data = geofiles.load_json(file)
     data[cfg.NAME] = {}
 
-    # TODO: handle not used
     for y_trues, y_preds, name in zip([y_trues_all, y_trues_incomplete, y_trues_complete],
                                       [y_preds_all, y_preds_incomplete, y_preds_complete],
                                       ['all', 'missingmodality', 'fullmodality']):
 
-            f1 = metrics.f1_score_from_prob(y_preds, y_trues)
-            iou = metrics.iou_from_prob(y_preds, y_trues)
-            oa = metrics.oa_from_prob(y_preds, y_trues)
+            if not y_trues.size == 0:
+                f1 = metrics.f1_score_from_prob(y_preds, y_trues)
+                iou = metrics.iou_from_prob(y_preds, y_trues)
+                oa = metrics.oa_from_prob(y_preds, y_trues)
 
-            data[cfg.NAME][name] = {
-                'f1': f1,
-                'iou': iou,
-                'oa': oa,
-            }
+                data[cfg.NAME][name] = {
+                    'f1': f1,
+                    'iou': iou,
+                    'oa': oa,
+                }
 
     geofiles.write_json(file, data)
 
 
 def qualitative_assessment(cfg: experiment_manager.CfgNode, run_type: str = 'validation'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    net, *_ = networks.load_checkpoint(cfg.INFERENCE_CHECKPOINT, cfg, device)
+    net, *_ = networks.load_checkpoint(cfg.CHECKPOINTS.INFERENCE, cfg, device)
     net.eval()
     ds = datasets.BuildingDataset(cfg, run_type, no_augmentations=True)
 
