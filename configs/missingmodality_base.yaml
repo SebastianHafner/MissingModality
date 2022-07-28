@@ -1,5 +1,6 @@
 SEED: 7
 DEBUG: False
+MODALITY: 'missing'
 
 CHECKPOINTS:
     SAVE: [100]

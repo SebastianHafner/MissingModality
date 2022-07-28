@@ -3,7 +3,34 @@ from pathlib import Path
 from utils import experiment_manager, networks, datasets, parsers, geofiles
 
 
-def inference_change(cfg: experiment_manager.CfgNode):
+def inference_fullmodality(cfg: experiment_manager.CfgNode):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    net, *_ = networks.load_checkpoint(cfg.CHECKPOINTS.INFERENCE, cfg, device)
+    net.eval()
+
+    pred_folder = Path(cfg.PATHS.OUTPUT) / 'inference' / cfg.NAME
+    pred_folder.mkdir(exist_ok=True)
+
+    with torch.no_grad():
+        for run_type in ['training', 'test']:
+            ds = datasets.BuildingDataset(cfg, run_type, no_augmentations=True)
+            for item in ds:
+                aoi_id = item['aoi_id']
+                year = item['year']
+                month = item['month']
+
+                x_s1 = item['x_s1'].to(device)
+                x_s2 = item['x_s2'].to(device)
+
+                logits = net(x_s1.unsqueeze(0), x_s2.unsqueeze(0))
+                y_pred = torch.sigmoid(logits).squeeze().detach().cpu().numpy()
+
+                transform, crs = ds.get_geo(aoi_id)
+                pred_file = pred_folder / f'pred_{cfg.NAME}_{aoi_id}_{year}_{month:02d}.tif'
+                geofiles.write_tif(pred_file, y_pred[:, :, None], transform, crs)
+
+
+def inference_missingmodality(cfg: experiment_manager.CfgNode):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net, *_ = networks.load_checkpoint(cfg.INFERENCE_CHECKPOINT, cfg, device)
     net.eval()
@@ -31,4 +58,4 @@ def inference_change(cfg: experiment_manager.CfgNode):
 if __name__ == '__main__':
     args = parsers.deployment_argument_parser().parse_known_args()[0]
     cfg = experiment_manager.setup_cfg(args)
-    inference_change(cfg)
+    inference_fullmodality(cfg)

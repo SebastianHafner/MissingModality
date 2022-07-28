@@ -35,6 +35,21 @@ def deployment_argument_parser():
     return parser
 
 
+def dataset_argument_parser():
+    parser = argparse.ArgumentParser(description="Experiment Args")
+    parser.add_argument('-o', "--output-dir", dest='output_dir', required=True, help="path to output directory")
+    parser.add_argument('-d', "--dataset-dir", dest='dataset_dir', default="", required=True,
+                        help="path to output directory")
+
+    parser.add_argument(
+        "opts",
+        help="Modify config options using the command-line",
+        default=None,
+        nargs=argparse.REMAINDER,
+    )
+    return parser
+
+
 def preprocess_argument_parser():
     parser = argparse.ArgumentParser(description="Experiment Args")
     parser.add_argument('-d', "--dataset", dest='dataset', required=True, help="path to dataset")

@@ -1,0 +1,8 @@
+_BASE_: "s1s2ours.yaml"
+DEBUG: False
+
+TRAINER:
+  LR: 1e-5
+
+RECONSTRUCTION_TRAINER:
+  ALPHA: 0.5
