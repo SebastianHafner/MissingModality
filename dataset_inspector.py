@@ -18,7 +18,7 @@ def plot_satellite_data(dataset_path: str, output_path: str):
                 s1_file = Path(dataset_path) / aoi_id / 's1' / f's1_{aoi_id}_{year}_{month:02d}.tif'
                 s1, *_ = geofiles.read_tif(s1_file)
                 axs[0].imshow(s1[:, :, 0], cmap='gray', vmin=0, vmax=1)
-    
+
                 if timestamp['s2']:
                     s2_file = Path(dataset_path) / aoi_id / 's2' / f's2_{aoi_id}_{year}_{month:02d}.tif'
                     s2, *_ = geofiles.read_tif(s2_file)

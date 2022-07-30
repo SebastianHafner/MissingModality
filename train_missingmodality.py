@@ -32,7 +32,7 @@ def run_training(cfg):
 
     sup_criterion = loss_functions.get_criterion(cfg.TRAINER.LOSS_TYPE)
     sim_criterion = loss_functions.get_criterion(cfg.RECONSTRUCTION_TRAINER.LOSS_TYPE)
-    alpha = cfg.RECONSTRUCTION_TRAINER.ALPHA
+    phi = cfg.RECONSTRUCTION_TRAINER.PHI
 
     # reset the generators
     dataset = datasets.BuildingDataset(cfg=cfg, run_type='training')
@@ -93,7 +93,7 @@ def run_training(cfg):
                 sup_complete_loss = sup_criterion(logits_complete, y[complete_modality, ])
                 sup_complete_loss_set.append(sup_complete_loss.item())
                 sim_loss = sim_criterion(features_s2[complete_modality, ], features_s2_recon[complete_modality, ])
-                sim_loss = (1 - alpha) * sim_loss
+                sim_loss = phi * sim_loss
                 sim_loss_set.append(sim_loss.item())
 
             features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
@@ -107,7 +107,6 @@ def run_training(cfg):
                 sup_loss = sup_complete_loss
             else:
                 sup_loss = sup_complete_loss + sup_incomplete_loss
-            sup_loss = alpha * sup_loss
             sup_loss_set.append(sup_loss.item())
 
             if sim_loss is None:

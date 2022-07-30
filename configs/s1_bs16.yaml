@@ -1,6 +1,0 @@
-_BASE_: "s1.yaml"
-DEBUG: False
-
-TRAINER:
-  LR: 1e-4
-  BATCH_SIZE: 16
