@@ -61,3 +61,20 @@ def preprocess_argument_parser():
         nargs=argparse.REMAINDER,
     )
     return parser
+
+
+def study_area_upload_argument_parser():
+    # https://docs.python.org/3/library/argparse.html#the-add-argument-method
+    parser = argparse.ArgumentParser(description="Experiment Args")
+
+    parser.add_argument('-s', "--spacenet7-dir", dest='spacenet7_dir', required=True, help="path to SpaceNet7 dataset")
+    parser.add_argument('-c', "--config-file", dest='config_file', required=False, default="base",
+                        help="path to config file")
+
+    parser.add_argument(
+        "opts",
+        help="Modify config options using the command-line",
+        default=None,
+        nargs=argparse.REMAINDER,
+    )
+    return parser
