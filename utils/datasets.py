@@ -114,7 +114,7 @@ class BuildingDataset(AbstractBuildingDataset):
         if s2:
             img_s2 = self._load_s2_img(aoi_id, year, month)
         else:
-            img_s2 = np.empty((img_s1.shape[0], img_s1.shape[1], len(self.s2_band_indices)), dtype=np.float32)
+            img_s2 = np.zeros((img_s1.shape[0], img_s1.shape[1], len(self.s2_band_indices)), dtype=np.float32)
         missing_modality = False if s1 and s2 else True
 
         buildings = self._load_building_label(aoi_id, year, month)

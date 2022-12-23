@@ -55,10 +55,10 @@ def run_training(cfg):
     # tracking variables
     global_step = epoch_float = 0
 
-    evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step,
-                                                cfg.LOGGING.EPOCH_MAX_SAMPLES)
-    evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step,
-                                                cfg.LOGGING.EPOCH_MAX_SAMPLES)
+    evaluation.model_evaluation_proposed(net, cfg, device, 'training', epoch_float, global_step,
+                                         cfg.LOGGING.EPOCH_MAX_SAMPLES)
+    evaluation.model_evaluation_proposed(net, cfg, device, 'validation', epoch_float, global_step,
+                                         cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
     scaler = torch.cuda.amp.GradScaler()
     clip = 1
@@ -89,16 +89,16 @@ def run_training(cfg):
 
             if complete_modality.any():
                 features_fusion = torch.concat((features_s1, features_s2), dim=1)
-                logits_complete = net.module.outc(features_fusion[complete_modality, ])
-                sup_complete_loss = sup_criterion(logits_complete, y[complete_modality, ])
+                logits_complete = net.module.outc(features_fusion[complete_modality])
+                sup_complete_loss = sup_criterion(logits_complete, y[complete_modality])
                 sup_complete_loss_set.append(sup_complete_loss.item())
-                sim_loss = sim_criterion(features_s2[complete_modality, ], features_s2_recon[complete_modality, ])
+                sim_loss = sim_criterion(features_s2[complete_modality], features_s2_recon[complete_modality])
                 sim_loss = phi * sim_loss
                 sim_loss_set.append(sim_loss.item())
 
             features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
-            logits_incomplete = net.module.outc(features_fusion[missing_modality, ])
-            sup_incomplete_loss = sup_criterion(logits_incomplete, y[missing_modality, ])
+            logits_incomplete = net.module.outc(features_fusion[missing_modality])
+            sup_incomplete_loss = sup_criterion(logits_incomplete, y[missing_modality])
             sup_incomplete_loss_set.append(sup_incomplete_loss.item())
 
             if sup_complete_loss is None:
@@ -133,10 +133,10 @@ def run_training(cfg):
             if global_step % cfg.LOGGING.STEP_FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
                 # evaluation on sample of training and validation set
-                evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step,
-                                                            cfg.LOGGING.STEP_MAX_SAMPLES)
-                evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step,
-                                                            cfg.LOGGING.STEP_MAX_SAMPLES)
+                evaluation.model_evaluation_proposed(net, cfg, device, 'training', epoch_float, global_step,
+                                                     cfg.LOGGING.STEP_MAX_SAMPLES)
+                evaluation.model_evaluation_proposed(net, cfg, device, 'validation', epoch_float, global_step,
+                                                     cfg.LOGGING.STEP_MAX_SAMPLES)
 
                 # logging
                 time = timeit.default_timer() - start
@@ -160,10 +160,10 @@ def run_training(cfg):
             assert (epoch == epoch_float)
         if epoch_float % cfg.LOGGING.EPOCH_FREQUENCY == 0:
             # evaluation at the end of an epoch
-            evaluation.model_evaluation_missingmodality(net, cfg, device, 'training', epoch_float, global_step,
-                                                        cfg.LOGGING.EPOCH_MAX_SAMPLES)
-            evaluation.model_evaluation_missingmodality(net, cfg, device, 'validation', epoch_float, global_step,
-                                                        cfg.LOGGING.EPOCH_MAX_SAMPLES)
+            evaluation.model_evaluation_proposed(net, cfg, device, 'training', epoch_float, global_step,
+                                                 cfg.LOGGING.EPOCH_MAX_SAMPLES)
+            evaluation.model_evaluation_proposed(net, cfg, device, 'validation', epoch_float, global_step,
+                                                 cfg.LOGGING.EPOCH_MAX_SAMPLES)
 
         if epoch in save_checkpoints and not cfg.DEBUG:
             print(f'saving network', flush=True)
