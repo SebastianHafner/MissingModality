@@ -1,0 +1,14 @@
+_BASE_: "base.yaml"
+DEBUG: False
+MODALITY: 'missing'
+
+MODEL:
+  TYPE: 'reconstructionnet_v1'
+
+RECONSTRUCTION_TRAINER:
+  LOSS_TYPE: 'L2'
+  PHI: 0.5
+
+DATALOADER:
+  INPUT_MODE: 's1s2'
+  INCLUDE_INCOMPLETE: True
