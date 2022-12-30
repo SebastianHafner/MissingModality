@@ -1,10 +1,9 @@
 _BASE_: "base.yaml"
-DEBUG: False
+DEBUG: True
 
 MODEL:
   TYPE: 'dualstreamunet'
-  TOPOLOGY: [64, 128,]
 
 DATALOADER:
   INPUT_MODE: 's1s2'
-  INCLUDE_INCOMPLETE: False
+  INCLUDE_INCOMPLETE: True

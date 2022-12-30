@@ -1,8 +1,0 @@
-_BASE_: "base.yaml"
-DEBUG: False
-
-MODEL:
-  TYPE: 'unet'
-
-DATALOADER:
-  INPUT_MODE: 's1'

@@ -1,5 +1,0 @@
-_BASE_: "s1s2ours.yaml"
-DEBUG: False
-
-RECONSTRUCTION_TRAINER:
-  PHI: 0.5
