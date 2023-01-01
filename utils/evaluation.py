@@ -20,6 +20,7 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
 
     max_samples = len(ds) if max_samples is None or max_samples > len(ds) else max_samples
     samples_counter = 0
+    n_total = n_incomplete = 0
 
     with torch.no_grad():
         for step, item in enumerate(dataloader):
@@ -41,10 +42,19 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
 
             measurer_all.add_sample(y, y_hat)
 
+            n_total += torch.numel(missing_modality)
+            n_incomplete += torch.sum(missing_modality).item()
+
             samples_counter += 1
             if samples_counter == max_samples:
                 break
 
+    wandb.log({
+        f'{run_type} missing_modality': n_incomplete / n_total * 100,
+        'step': step, 'epoch': epoch,
+    })
+
+    return_value = None
     for measurer, name in zip((measurer_complete, measurer_incomplete, measurer_all),
                               ['fullmodality', 'missingmodality', 'all']):
         if not measurer.is_empty():
@@ -55,6 +65,10 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
             argmax_f1 = f1s.argmax()
             precision = precisions[argmax_f1].item()
             recall = recalls[argmax_f1].item()
+
+            if name == 'all':
+                return_value = f1
+
             if early_stopping:
                 wandb.log({
                     f'earlystopping {run_type} {name} F1': f1,
@@ -69,6 +83,7 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
                     f'{run_type} {name} recall': recall,
                     'step': step, 'epoch': epoch,
                 })
+    return return_value
 
 
 def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int = None, early_stopping: bool = False):
@@ -85,6 +100,7 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
 
     max_samples = len(ds) if max_samples is None or max_samples > len(ds) else max_samples
     samples_counter = 0
+    n_total = n_incomplete = 0
 
     with torch.no_grad():
         for step, item in enumerate(dataloader):
@@ -111,10 +127,19 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
                 measurer_incomplete.add_sample(y[missing_modality], y_hat_incomplete)
                 measurer_all.add_sample(y[missing_modality], y_hat_incomplete)
 
+            n_total += torch.numel(missing_modality)
+            n_incomplete += torch.sum(missing_modality).item()
+
             samples_counter += 1
             if samples_counter == max_samples:
                 break
 
+    wandb.log({
+        f'{run_type} missing_modality': n_incomplete / n_total * 100,
+        'step': step, 'epoch': epoch,
+    })
+
+    return_value = None
     for measurer, name in zip((measurer_complete, measurer_incomplete, measurer_all),
                               ['fullmodality', 'missingmodality', 'all']):
         if not measurer.is_empty():
@@ -125,6 +150,9 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
             argmax_f1 = f1s.argmax()
             precision = precisions[argmax_f1].item()
             recall = recalls[argmax_f1].item()
+
+            if name == 'all':
+                return_value = f1
 
             if early_stopping:
                 wandb.log({
@@ -140,6 +168,6 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
                     f'{run_type} {name} recall': recall,
                     'step': step, 'epoch': epoch,
                 })
-
+    return return_value
 
 
