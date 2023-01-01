@@ -5,9 +5,6 @@ MODALITY: 'missing'
 MODEL:
   TYPE: 'reconstructionnet_v1'
 
-TRAINER:
-  BATCH_SIZE: 4
-
 RECONSTRUCTION_TRAINER:
   LOSS_TYPE: 'L2'
   PHI: 0.5
