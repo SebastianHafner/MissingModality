@@ -76,8 +76,6 @@ def run_training(cfg: experiment_manager.CfgNode):
 
             if global_step % cfg.LOGGING.FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
-                _ = evaluation.baselines(net, cfg, 'train', epoch_float, global_step, cfg.LOGGING.MAX_SAMPLES)
-                _ = evaluation.baselines(net, cfg, 'val', epoch_float, global_step, cfg.LOGGING.MAX_SAMPLES)
                 time = timeit.default_timer() - start
                 wandb.log({
                     'loss': np.mean(loss_set),

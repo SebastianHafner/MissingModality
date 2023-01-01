@@ -118,6 +118,42 @@ class DualStreamUNet(nn.Module):
         return out
 
 
+class DualStreamUNetPlus(nn.Module):
+    def __init__(self, cfg):
+        super(DualStreamUNetPlus, self).__init__()
+        self.cfg = cfg
+        topology = cfg.MODEL.TOPOLOGY
+
+        # stream 1 (S1)
+        self.inc_s1 = InConv(len(cfg.DATALOADER.S1_BANDS), topology[0], DoubleConv)
+        self.encoder_s1 = Encoder(cfg)
+        self.decoder_s1 = Decoder(cfg)
+
+        # stream 2 (S2)
+        self.inc_s2 = InConv(len(cfg.DATALOADER.S2_BANDS), topology[0], DoubleConv)
+        self.encoder_s2 = Encoder(cfg)
+        self.decoder_s2 = Decoder(cfg)
+
+        self.outc = OutConv(2 * topology[0], 1)
+
+        # parameters
+
+    def forward(self, x_s1: torch.Tensor, x_s2: torch.Tensor) -> tuple:
+        # stream1 (S1)
+        features_s1 = self.inc_s1(x_s1)
+        features_s1 = self.encoder_s1(features_s1)
+        features_s1 = self.decoder_s1(features_s1)
+
+        # stream2 (S2)
+        features_s2 = self.inc_s2(x_s2)
+        features_s2 = self.encoder_s2(features_s2)
+        features_s2 = self.decoder_s2(features_s2)
+
+        x_out = torch.concat((features_s1, features_s2), dim=1)
+        out = self.outc(x_out)
+        return out
+
+
 class ReconstructionNetV1(nn.Module):
     def __init__(self, cfg):
         super(ReconstructionNetV1, self).__init__()
