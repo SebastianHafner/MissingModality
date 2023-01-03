@@ -14,6 +14,8 @@ def create_network(cfg):
         model = UNet(cfg)
     elif cfg.MODEL.TYPE == 'dualstreamunet':
         model = DualStreamUNet(cfg)
+    elif cfg.MODEL.TYPE == 'dualstreamunetplus':
+        model = DualStreamUNetPlus(cfg)
     elif cfg.MODEL.TYPE == 'reconstructionnet_v1':
         model = ReconstructionNetV1(cfg)
     else:
@@ -57,6 +59,7 @@ class UNet(nn.Module):
     def __init__(self, cfg):
         super(UNet, self).__init__()
         self.cfg = cfg
+        self.requires_missing_modality = False
         topology = cfg.MODEL.TOPOLOGY
         if cfg.DATALOADER.INPUT_MODE == 's1':
             n_channels = len(cfg.DATALOADER.S1_BANDS)
@@ -88,6 +91,7 @@ class DualStreamUNet(nn.Module):
     def __init__(self, cfg):
         super(DualStreamUNet, self).__init__()
         self.cfg = cfg
+        self.requires_missing_modality = False
         topology = cfg.MODEL.TOPOLOGY
 
         # stream 1 (S1)
@@ -122,6 +126,7 @@ class DualStreamUNetPlus(nn.Module):
     def __init__(self, cfg):
         super(DualStreamUNetPlus, self).__init__()
         self.cfg = cfg
+        self.requires_missing_modality = True
         topology = cfg.MODEL.TOPOLOGY
 
         # stream 1 (S1)
@@ -137,8 +142,11 @@ class DualStreamUNetPlus(nn.Module):
         self.outc = OutConv(2 * topology[0], 1)
 
         # parameters
+        patch_size = cfg.AUGMENTATION.CROP_SIZE
+        self.ravg_features_s2 = nn.Parameter(torch.zeros((1, topology[0], patch_size, patch_size), requires_grad=False))
+        self.n = nn.Parameter(torch.zeros(1, requires_grad=False))
 
-    def forward(self, x_s1: torch.Tensor, x_s2: torch.Tensor) -> tuple:
+    def forward(self, x_s1: torch.Tensor, x_s2: torch.Tensor, missing_modality: torch.tensor) -> tuple:
         # stream1 (S1)
         features_s1 = self.inc_s1(x_s1)
         features_s1 = self.encoder_s1(features_s1)
@@ -149,8 +157,19 @@ class DualStreamUNetPlus(nn.Module):
         features_s2 = self.encoder_s2(features_s2)
         features_s2 = self.decoder_s2(features_s2)
 
+        if missing_modality.any():
+            features_s2[missing_modality] = self.ravg_features_s2
+
         x_out = torch.concat((features_s1, features_s2), dim=1)
         out = self.outc(x_out)
+
+        # update ravg s2 features
+        complete_modality = torch.logical_not(missing_modality)
+        if self.training and complete_modality.any():
+            nominator = self.ravg_features_s2 * self.n + torch.sum(features_s2[complete_modality], dim=0)
+            demoninator = self.n + torch.sum(complete_modality)
+            self.ravg_features_s2 = nn.Parameter(nominator / demoninator, requires_grad=False)
+            self.n = nn.Parameter(self.n + torch.sum(complete_modality).item(), requires_grad=False)
         return out
 
 
@@ -158,6 +177,7 @@ class ReconstructionNetV1(nn.Module):
     def __init__(self, cfg):
         super(ReconstructionNetV1, self).__init__()
         self.cfg = cfg
+        self.requires_missing_modality = False
         topology = cfg.MODEL.TOPOLOGY
 
         # stream 1 (S1)

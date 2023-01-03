@@ -57,11 +57,13 @@ def run_training(cfg: experiment_manager.CfgNode):
 
             x_s1 = batch['x_s1'].to(device)
             x_s2 = batch['x_s2'].to(device)
+            missing_modality = batch['missing_modality']
             y = batch['y'].to(device)
 
-            missing_modality = batch['missing_modality']
-
-            logits = net(x_s1, x_s2)
+            if net.module.requires_missing_modality:
+                logits = net(x_s1, x_s2, missing_modality)
+            else:
+                logits = net(x_s1, x_s2)
 
             loss = criterion(logits, y)
             loss.backward()
