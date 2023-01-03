@@ -1,5 +1,6 @@
 _BASE_: "base.yaml"
 DEBUG: False
+GROUP: 'unet_s1'
 
 MODEL:
   TYPE: 'unet'

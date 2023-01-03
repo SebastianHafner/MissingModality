@@ -1,12 +1,12 @@
 SEED: 7
 DEBUG: False
-MODALITY: 'full'
+GROUP: 'base'
 
 INFERENCE:
   USE_BEST_VAL: True
 
 EARLY_STOPPING:
-  ENABLE: False
+  ENABLE: True
   PATIENCE: 5
 
 LOGGING:
@@ -15,7 +15,7 @@ LOGGING:
 TRAINER:
   LR: 1e-5
   BATCH_SIZE: 16
-  EPOCHS: 50
+  EPOCHS: 100
   OPTIMIZER: 'adamw'
   LOSS_TYPE: 'PowerJaccardLoss'
 

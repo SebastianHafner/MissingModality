@@ -1,5 +1,6 @@
 _BASE_: "base.yaml"
 DEBUG: False
+GROUP: 'masked_dsunet_s1s2'
 
 MODEL:
   TYPE: 'dualstreamunet'
