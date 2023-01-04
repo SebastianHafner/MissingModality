@@ -46,14 +46,17 @@ def quantitative_inference_baselines(cfg: experiment_manager.CfgNode):
 
         ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
         for item in ds:
-            x_s1 = item['x_s1'].to(device)
-            x_s2 = item['x_s2'].to(device)
+            x_s1 = item['x_s1'].to(device).unsqueeze(0)
+            x_s2 = item['x_s2'].to(device).unsqueeze(0)
             y = item['y'].to(device)
+            missing_modality = item['missing_modality']
             with torch.no_grad():
-                logits = net(x_s1.unsqueeze(0), x_s2.unsqueeze(0))
+                if net.module.requires_missing_modality:
+                    logits = net(x_s1, x_s2, torch.tensor([missing_modality]))
+                else:
+                    logits = net(x_s1, x_s2)
             y_hat = torch.sigmoid(logits).squeeze().detach()
 
-            missing_modality = item['missing_modality']
             if missing_modality:
                 m_incomplete.add_sample(y, y_hat)
             else:

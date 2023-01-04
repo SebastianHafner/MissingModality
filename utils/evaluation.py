@@ -78,11 +78,14 @@ def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, max_sampl
             x_s1 = item['x_s1'].to(device)
             x_s2 = item['x_s2'].to(device)
             y = item['y'].to(device)
+            missing_modality = item['missing_modality']
 
-            logits = net(x_s1, x_s2)
+            if net.module.requires_missing_modality:
+                logits = net(x_s1, x_s2, torch.tensor([missing_modality]))
+            else:
+                logits = net(x_s1, x_s2)
             y_hat = torch.sigmoid(logits).detach()
 
-            missing_modality = item['missing_modality']
             complete_modality = torch.logical_not(missing_modality)
 
             if complete_modality.any():
