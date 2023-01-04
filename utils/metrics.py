@@ -3,8 +3,11 @@ import numpy as np
 
 
 class MultiThresholdMetric(object):
-    def __init__(self, threshold):
+    def __init__(self, name: str = None, device: torch.device = torch.device('cpu')):
 
+        self.name = name
+
+        threshold = torch.linspace(0.5, 1, 1).to(device)
         self._thresholds = threshold[:, None, None, None, None]  # [Tresh, B, C, H, W]
         self._data_dims = (-1, -2, -3, -4)  # For a B/W image, it should be [Thresh, B, C, H, W],
 

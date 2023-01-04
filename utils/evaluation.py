@@ -10,10 +10,9 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
     net.to(device)
     net.eval()
 
-    thresholds = torch.linspace(0.5, 1, 1).to(device)
-    measurer_complete = metrics.MultiThresholdMetric(thresholds)
-    measurer_incomplete = metrics.MultiThresholdMetric(thresholds)
-    measurer_all = metrics.MultiThresholdMetric(thresholds)
+    m_complete = metrics.MultiThresholdMetric('fullmodality', device)
+    m_incomplete = metrics.MultiThresholdMetric('missingmodality', device)
+    m_all = metrics.MultiThresholdMetric('all', device)
 
     ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
     dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
@@ -35,12 +34,12 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
             complete_modality = torch.logical_not(missing_modality)
 
             if complete_modality.any():
-                measurer_complete.add_sample(y[complete_modality], y_hat[complete_modality])
+                m_complete.add_sample(y[complete_modality], y_hat[complete_modality])
 
             if missing_modality.any():
-                measurer_incomplete.add_sample(y[missing_modality], y_hat[missing_modality])
+                m_incomplete.add_sample(y[missing_modality], y_hat[missing_modality])
 
-            measurer_all.add_sample(y, y_hat)
+            m_all.add_sample(y, y_hat)
 
             n_total += torch.numel(missing_modality)
             n_incomplete += torch.sum(missing_modality).item()
@@ -55,8 +54,7 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
     })
 
     return_value = None
-    for measurer, name in zip((measurer_complete, measurer_incomplete, measurer_all),
-                              ['fullmodality', 'missingmodality', 'all']):
+    for measurer in (m_complete, m_incomplete, m_all):
         if not measurer.is_empty():
             f1s = measurer.compute_f1()
             precisions, recalls = measurer.precision, measurer.recall
@@ -66,23 +64,17 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
             precision = precisions[argmax_f1].item()
             recall = recalls[argmax_f1].item()
 
-            if name == 'all':
+            if measurer.name == 'all':
                 return_value = f1
 
-            if early_stopping:
-                wandb.log({
-                    f'earlystopping {run_type} {name} F1': f1,
-                    f'earlystopping {run_type} {name} precision': precision,
-                    f'earlystopping {run_type} {name} recall': recall,
-                    'step': step, 'epoch': epoch,
-                })
-            else:
-                wandb.log({
-                    f'{run_type} {name} F1': f1,
-                    f'{run_type} {name} precision': precision,
-                    f'{run_type} {name} recall': recall,
-                    'step': step, 'epoch': epoch,
-                })
+            suffix = 'earlystopping ' if early_stopping else ''
+            wandb.log({
+                suffix + f'{run_type} {measurer.name} F1': f1,
+                suffix + f'{run_type} {measurer.name} precision': precision,
+                suffix + f'{run_type} {measurer.name} recall': recall,
+                'step': step, 'epoch': epoch,
+            })
+
     return return_value
 
 
@@ -90,10 +82,9 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
     net.to(device)
     net.eval()
 
-    thresholds = torch.linspace(0.5, 1, 1).to(device)
-    measurer_complete = metrics.MultiThresholdMetric(thresholds)
-    measurer_incomplete = metrics.MultiThresholdMetric(thresholds)
-    measurer_all = metrics.MultiThresholdMetric(thresholds)
+    m_complete = metrics.MultiThresholdMetric('fullmodality', device)
+    m_incomplete = metrics.MultiThresholdMetric('missingmodality', device)
+    m_all = metrics.MultiThresholdMetric('all', device)
 
     ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
     dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
@@ -117,15 +108,15 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
                 features_fusion = torch.concat((features_s1, features_s2), dim=1)
                 logits_complete = net.module.outc(features_fusion[complete_modality,])
                 y_hat_complete = torch.sigmoid(logits_complete).detach()
-                measurer_complete.add_sample(y[complete_modality], y_hat_complete)
-                measurer_all.add_sample(y[complete_modality], y_hat_complete)
+                m_complete.add_sample(y[complete_modality], y_hat_complete)
+                m_all.add_sample(y[complete_modality], y_hat_complete)
 
             if missing_modality.any():
                 features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
                 logits_incomplete = net.module.outc(features_fusion[missing_modality,])
                 y_hat_incomplete = torch.sigmoid(logits_incomplete).detach()
-                measurer_incomplete.add_sample(y[missing_modality], y_hat_incomplete)
-                measurer_all.add_sample(y[missing_modality], y_hat_incomplete)
+                m_incomplete.add_sample(y[missing_modality], y_hat_incomplete)
+                m_all.add_sample(y[missing_modality], y_hat_incomplete)
 
             n_total += torch.numel(missing_modality)
             n_incomplete += torch.sum(missing_modality).item()
@@ -140,8 +131,7 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
     })
 
     return_value = None
-    for measurer, name in zip((measurer_complete, measurer_incomplete, measurer_all),
-                              ['fullmodality', 'missingmodality', 'all']):
+    for measurer in (m_complete, m_incomplete, m_all):
         if not measurer.is_empty():
             f1s = measurer.compute_f1()
             precisions, recalls = measurer.precision, measurer.recall
@@ -151,23 +141,17 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
             precision = precisions[argmax_f1].item()
             recall = recalls[argmax_f1].item()
 
-            if name == 'all':
+            if measurer.name == 'all':
                 return_value = f1
 
-            if early_stopping:
-                wandb.log({
-                    f'earlystopping {run_type} {name} F1': f1,
-                    f'earlystopping {run_type} {name} precision': precision,
-                    f'earlystopping {run_type} {name} recall': recall,
-                    'step': step, 'epoch': epoch,
-                })
-            else:
-                wandb.log({
-                    f'{run_type} {name} F1': f1,
-                    f'{run_type} {name} precision': precision,
-                    f'{run_type} {name} recall': recall,
-                    'step': step, 'epoch': epoch,
-                })
+            suffix = 'earlystopping ' if early_stopping else ''
+            wandb.log({
+                suffix + f'{run_type} {measurer.name} F1': f1,
+                suffix + f'{run_type} {measurer.name} precision': precision,
+                suffix + f'{run_type} {measurer.name} recall': recall,
+                'step': step, 'epoch': epoch,
+            })
+
     return return_value
 
 
