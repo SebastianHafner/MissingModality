@@ -1,18 +1,69 @@
 import torch
 from torch.utils import data as torch_data
 import wandb
-from utils import datasets, metrics
+from utils import datasets
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+class Measurer(object):
+    def __init__(self, name: str = None, threshold: float = 0.5):
+
+        self.name = name
+        self.threshold = threshold
+
+        self.TP = 0
+        self.TN = 0
+        self.FP = 0
+        self.FN = 0
+
+        self._precision = None
+        self._recall = None
+
+        self.eps = 10e-05
+
+    def add_sample(self, y: torch.Tensor, y_hat: torch.Tensor):
+        y = y.bool()
+        y_hat = y_hat > self.threshold
+
+        self.TP += torch.sum(y & y_hat).float()
+        self.TN += torch.sum(~y & ~y_hat).float()
+        self.FP += torch.sum(y_hat & ~y).float()
+        self.FN += torch.sum(~y_hat & y).float()
+
+    def precision(self):
+        if self._precision is None:
+            self._precision = self.TP / (self.TP + self.FP + self.eps)
+        return self._precision
+
+    def recall(self):
+        if self._recall is None:
+            self._recall = self.TP / (self.TP + self.FN + self.eps)
+        return self._recall
+
+    def compute_basic_metrics(self):
+        false_pos_rate = self.FP / (self.FP + self.TN + self.eps)
+        false_neg_rate = self.FN / (self.FN + self.TP + self.eps)
+        return false_pos_rate, false_neg_rate
+
+    def f1(self):
+        return (2 * self.precision() * self.recall()) / (self.precision() + self.recall() + self.eps)
+
+    def iou(self):
+        return self.TP / (self.TP + self.FP + self.FN + self.eps)
+
+    def oa(self):
+        return (self.TP + self.TN) / (self.TP + self.TN + self.FP + self.FN + self.eps)
+
+    def is_empty(self):
+        return True if (self.TP + self.TN + self.FP + self.FN) == 0 else False
 
 
 def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int = None, early_stopping: bool = False):
     net.to(device)
     net.eval()
 
-    m_complete = metrics.MultiThresholdMetric('fullmodality', device)
-    m_incomplete = metrics.MultiThresholdMetric('missingmodality', device)
-    m_all = metrics.MultiThresholdMetric('all', device)
+    m_complete, m_incomplete, m_all = Measurer('fullmodality'), Measurer('missingmodality'), Measurer('all')
 
     ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
     dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
@@ -56,24 +107,19 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
     return_value = None
     for measurer in (m_complete, m_incomplete, m_all):
         if not measurer.is_empty():
-            f1s = measurer.compute_f1()
-            precisions, recalls = measurer.precision, measurer.recall
-
-            f1 = f1s.max().item()
-            argmax_f1 = f1s.argmax()
-            precision = precisions[argmax_f1].item()
-            recall = recalls[argmax_f1].item()
-
-            if measurer.name == 'all':
-                return_value = f1
+            f1 = measurer.f1()
+            false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
             suffix = 'earlystopping ' if early_stopping else ''
             wandb.log({
-                suffix + f'{run_type} {measurer.name} F1': f1,
-                suffix + f'{run_type} {measurer.name} precision': precision,
-                suffix + f'{run_type} {measurer.name} recall': recall,
+                suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
+                suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
+                suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
                 'step': step, 'epoch': epoch,
             })
+
+            if measurer.name == 'all':
+                return_value = f1
 
     return return_value
 
@@ -82,9 +128,7 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
     net.to(device)
     net.eval()
 
-    m_complete = metrics.MultiThresholdMetric('fullmodality', device)
-    m_incomplete = metrics.MultiThresholdMetric('missingmodality', device)
-    m_all = metrics.MultiThresholdMetric('all', device)
+    m_complete, m_incomplete, m_all = Measurer('fullmodality'), Measurer('missingmodality'), Measurer('all')
 
     ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
     dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
@@ -133,24 +177,19 @@ def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int 
     return_value = None
     for measurer in (m_complete, m_incomplete, m_all):
         if not measurer.is_empty():
-            f1s = measurer.compute_f1()
-            precisions, recalls = measurer.precision, measurer.recall
-
-            f1 = f1s.max().item()
-            argmax_f1 = f1s.argmax()
-            precision = precisions[argmax_f1].item()
-            recall = recalls[argmax_f1].item()
-
-            if measurer.name == 'all':
-                return_value = f1
+            f1 = measurer.f1()
+            false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
             suffix = 'earlystopping ' if early_stopping else ''
             wandb.log({
-                suffix + f'{run_type} {measurer.name} F1': f1,
-                suffix + f'{run_type} {measurer.name} precision': precision,
-                suffix + f'{run_type} {measurer.name} recall': recall,
+                suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
+                suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
+                suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
                 'step': step, 'epoch': epoch,
             })
+
+            if measurer.name == 'all':
+                return_value = f1
 
     return return_value
 

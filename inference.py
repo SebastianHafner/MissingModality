@@ -1,6 +1,6 @@
 import torch
 from pathlib import Path
-from utils import experiment_manager, networks, datasets, parsers, geofiles, metrics
+from utils import experiment_manager, networks, datasets, parsers, geofiles, evaluation
 
 
 def qualitative_inference_baselines(cfg: experiment_manager.CfgNode):
@@ -35,14 +35,15 @@ def quantitative_inference_baselines(cfg: experiment_manager.CfgNode):
     net, *_ = networks.load_checkpoint(cfg.TRAINER.EPOCHS, cfg, device, best_val=cfg.INFERENCE.USE_BEST_VAL)
     net.eval()
 
-    m_complete = metrics.MultiThresholdMetric('fullmodality', device)
-    m_incomplete = metrics.MultiThresholdMetric('missingmodality', device)
-    m_all = metrics.MultiThresholdMetric('all', device)
-
     data = {}
 
     for run_type in ['train', 'val', 'test']:
+
         data[run_type] = {}
+        m_complete = evaluation.Measurer('fullmodality')
+        m_incomplete = evaluation.Measurer('missingmodality')
+        m_all = evaluation.Measurer('all')
+
         ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
         for item in ds:
             x_s1 = item['x_s1'].to(device)
@@ -61,13 +62,13 @@ def quantitative_inference_baselines(cfg: experiment_manager.CfgNode):
 
         for measurer in (m_complete, m_incomplete, m_all):
             if not measurer.is_empty():
-                f1s = measurer.compute_f1()
-                precisions, recalls = measurer.precision, measurer.recall
-
-                data[run_type]['f1'] = f1s.max().item()
-                argmax_f1 = f1s.argmax()
-                data[run_type]['precision'] = precisions[argmax_f1].item()
-                data[run_type]['recall'] = recalls[argmax_f1].item()
+                data[run_type] = {
+                    'f1': measurer.f1().item(),
+                    'precision': measurer.precision().item(),
+                    'recall': measurer.recall().item(),
+                    'iou': measurer.iou().item(),
+                    'oa': measurer.oa().item(),
+                }
 
     out_file = Path(cfg.PATHS.OUTPUT) / 'inference' / 'quantitative' / f'quantitative_results_{cfg.NAME}.json'
     geofiles.write_json(out_file, data)
