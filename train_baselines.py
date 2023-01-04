@@ -95,9 +95,9 @@ def run_training(cfg: experiment_manager.CfgNode):
             assert (epoch == epoch_float)
 
         # evaluation at the end of an epoch
-        _ = evaluation.baselines(net, cfg, 'train', epoch_float, global_step)
-        f1_val = evaluation.baselines(net, cfg, 'val', epoch_float, global_step)
-        _ = evaluation.baselines(net, cfg, 'test', epoch_float, global_step)
+        _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
+        f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
+        _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
 
         if cfg.EARLY_STOPPING.ENABLE:
             if f1_val <= best_f1_val:
@@ -120,9 +120,9 @@ def run_training(cfg: experiment_manager.CfgNode):
     # final logging for early stopping
     if cfg.EARLY_STOPPING.ENABLE:
         net, *_ = networks.load_checkpoint(cfg.TRAINER.EPOCHS, cfg, device, best_val=True)
-        _ = evaluation.baselines(net, cfg, 'train', epoch_float, global_step, early_stopping=True)
-        _ = evaluation.baselines(net, cfg, 'val', epoch_float, global_step, early_stopping=True)
-        _ = evaluation.baselines(net, cfg, 'test', epoch_float, global_step, early_stopping=True)
+        _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step, early_stopping=True)
+        _ = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step, early_stopping=True)
+        _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step, early_stopping=True)
 
 
 if __name__ == '__main__':

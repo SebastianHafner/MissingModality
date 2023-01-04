@@ -177,7 +177,7 @@ class ReconstructionNetV1(nn.Module):
     def __init__(self, cfg):
         super(ReconstructionNetV1, self).__init__()
         self.cfg = cfg
-        self.requires_missing_modality = False
+        self.requires_missing_modality = True
         topology = cfg.MODEL.TOPOLOGY
 
         # stream 1 (S1)
@@ -196,7 +196,7 @@ class ReconstructionNetV1(nn.Module):
 
         self.outc = OutConv(2 * topology[0], 1)
 
-    def forward(self, x_s1: torch.Tensor, x_s2: torch.Tensor) -> tuple:
+    def forward(self, x_s1: torch.Tensor, x_s2: torch.Tensor, missing_modality: torch.tensor) -> tuple:
         # stream1 (S1)
         features_s1 = self.inc_s1(x_s1)
         features_s1 = self.encoder_s1(features_s1)
@@ -212,9 +212,15 @@ class ReconstructionNetV1(nn.Module):
         features_recon = self.encoder_s1(features_recon)
         features_s2_recon = self.decoder_s1(features_recon)
 
-        # x_out = torch.concat((features_s1, features_s2), dim=1)
-        # out = self.outc(x_out)
-        return features_s1, features_s2, features_s2_recon
+        if self.training:
+            return features_s1, features_s2, features_s2_recon
+        else:
+            # replacing the s2 features for missing modality samples with the reconstructed features
+            if missing_modality.any():
+                features_s2[missing_modality] = features_s2_recon
+            x_out = torch.concat((features_s1, features_s2), dim=1)
+            out = self.outc(x_out)
+            return out
 
 
 class Encoder(nn.Module):

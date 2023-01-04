@@ -63,14 +63,13 @@ def run_training(cfg: experiment_manager.CfgNode):
             x_s1 = batch['x_s1'].to(device)
             x_s2 = batch['x_s2'].to(device)
             y = batch['y'].to(device)
+            missing_modality = batch['missing_modality']
 
-            features_s1, features_s2, features_s2_recon = net(x_s1, x_s2)
+            features_s1, features_s2, features_s2_recon = net(x_s1, x_s2, missing_modality)
 
             sup_complete_loss = sup_incomplete_loss = sim_loss = None
 
-            missing_modality = batch['missing_modality']
             complete_modality = torch.logical_not(missing_modality)
-
             if complete_modality.any():
                 features_fusion = torch.concat((features_s1, features_s2), dim=1)
                 logits_complete = net.module.outc(features_fusion[complete_modality])
@@ -139,9 +138,9 @@ def run_training(cfg: experiment_manager.CfgNode):
             assert (epoch == epoch_float)
 
         # evaluation at the end of an epoch
-        _ = _ = evaluation.proposed(net, cfg, 'train', epoch_float, global_step)
-        f1_val = evaluation.proposed(net, cfg, 'val', epoch_float, global_step)
-        _ = evaluation.proposed(net, cfg, 'test', epoch_float, global_step)
+        _ = _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
+        f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
+        _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
 
         if cfg.EARLY_STOPPING.ENABLE:
             if f1_val <= best_f1_val:
@@ -164,9 +163,9 @@ def run_training(cfg: experiment_manager.CfgNode):
     # final logging for early stopping
     if cfg.EARLY_STOPPING.ENABLE:
         net, *_ = networks.load_checkpoint(cfg.TRAINER.EPOCHS, cfg, device, best_val=True)
-        _ = evaluation.proposed(net, cfg, 'train', epoch_float, global_step, early_stopping=True)
-        _ = evaluation.proposed(net, cfg, 'val', epoch_float, global_step, early_stopping=True)
-        _ = evaluation.proposed(net, cfg, 'test', epoch_float, global_step, early_stopping=True)
+        _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step, early_stopping=True)
+        _ = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step, early_stopping=True)
+        _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step, early_stopping=True)
 
 if __name__ == '__main__':
     args = parsers.training_argument_parser().parse_known_args()[0]

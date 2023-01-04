@@ -59,7 +59,8 @@ class Measurer(object):
         return True if (self.TP + self.TN + self.FP + self.FN) == 0 else False
 
 
-def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int = None, early_stopping: bool = False):
+def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, max_samples: int = None,
+                     early_stopping: bool = False):
     net.to(device)
     net.eval()
 
@@ -122,75 +123,3 @@ def baselines(net, cfg, run_type: str, epoch: float, step: int, max_samples: int
                 return_value = f1
 
     return return_value
-
-
-def proposed(net, cfg, run_type: str, epoch: float, step: int, max_samples: int = None, early_stopping: bool = False):
-    net.to(device)
-    net.eval()
-
-    m_complete, m_incomplete, m_all = Measurer('fullmodality'), Measurer('missingmodality'), Measurer('all')
-
-    ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
-    dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
-
-    max_samples = len(ds) if max_samples is None or max_samples > len(ds) else max_samples
-    samples_counter = 0
-    n_total = n_incomplete = 0
-
-    with torch.no_grad():
-        for step, item in enumerate(dataloader):
-            x_s1 = item['x_s1'].to(device)
-            x_s2 = item['x_s2'].to(device)
-            y = item['y'].to(device)
-
-            features_s1, features_s2, features_s2_recon = net(x_s1, x_s2)
-
-            missing_modality = item['missing_modality']
-            complete_modality = torch.logical_not(missing_modality)
-
-            if complete_modality.any():
-                features_fusion = torch.concat((features_s1, features_s2), dim=1)
-                logits_complete = net.module.outc(features_fusion[complete_modality,])
-                y_hat_complete = torch.sigmoid(logits_complete).detach()
-                m_complete.add_sample(y[complete_modality], y_hat_complete)
-                m_all.add_sample(y[complete_modality], y_hat_complete)
-
-            if missing_modality.any():
-                features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
-                logits_incomplete = net.module.outc(features_fusion[missing_modality,])
-                y_hat_incomplete = torch.sigmoid(logits_incomplete).detach()
-                m_incomplete.add_sample(y[missing_modality], y_hat_incomplete)
-                m_all.add_sample(y[missing_modality], y_hat_incomplete)
-
-            n_total += torch.numel(missing_modality)
-            n_incomplete += torch.sum(missing_modality).item()
-
-            samples_counter += 1
-            if samples_counter == max_samples:
-                break
-
-    wandb.log({
-        f'{run_type} missing_modality': n_incomplete / n_total * 100,
-        'step': step, 'epoch': epoch,
-    })
-
-    return_value = None
-    for measurer in (m_complete, m_incomplete, m_all):
-        if not measurer.is_empty():
-            f1 = measurer.f1()
-            false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
-
-            suffix = 'earlystopping ' if early_stopping else ''
-            wandb.log({
-                suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
-                suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
-                suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
-                'step': step, 'epoch': epoch,
-            })
-
-            if measurer.name == 'all':
-                return_value = f1
-
-    return return_value
-
-
