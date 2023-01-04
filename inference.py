@@ -40,9 +40,9 @@ def quantitative_inference_baselines(cfg: experiment_manager.CfgNode):
     for run_type in ['train', 'val', 'test']:
 
         data[run_type] = {}
-        m_complete = evaluation.Measurer('fullmodality')
+        m_complete = evaluation.Measurer('multimodal')
         m_incomplete = evaluation.Measurer('missingmodality')
-        m_all = evaluation.Measurer('all')
+        m_all = evaluation.Measurer('total')
 
         ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
         for item in ds:
@@ -65,7 +65,7 @@ def quantitative_inference_baselines(cfg: experiment_manager.CfgNode):
 
         for measurer in (m_complete, m_incomplete, m_all):
             if not measurer.is_empty():
-                data[run_type] = {
+                data[run_type][measurer.name] = {
                     'f1': measurer.f1().item(),
                     'precision': measurer.precision().item(),
                     'recall': measurer.recall().item(),
