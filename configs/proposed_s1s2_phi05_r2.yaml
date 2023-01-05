@@ -1,0 +1,3 @@
+_BASE_: "proposed_s1s2_phi05.yaml"
+SEED: 2
+DEBUG: False

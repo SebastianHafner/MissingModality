@@ -105,9 +105,6 @@ def run_training(cfg: experiment_manager.CfgNode):
             scaler.step(optimizer)
             scaler.update()
 
-            # loss.backward()
-            # optimizer.step()
-
             loss_set.append(loss.item())
 
             n_total += torch.numel(missing_modality)
@@ -138,7 +135,7 @@ def run_training(cfg: experiment_manager.CfgNode):
             assert (epoch == epoch_float)
 
         # evaluation at the end of an epoch
-        _ = _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
+        _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
         f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
         _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
 

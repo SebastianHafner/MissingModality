@@ -1,6 +1,6 @@
 _BASE_: "proposed_s1s2.yaml"
 DEBUG: False
-GROUP: 'proposed_s1s2_phi05'
+GROUP: 'proposed_s1s2_phi07'
 
 RECONSTRUCTION_TRAINER:
-  PHI: 0.5
+  PHI: 0.7
