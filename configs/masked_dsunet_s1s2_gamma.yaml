@@ -1,0 +1,6 @@
+_BASE_: "masked_dsunet_s1s2.yaml"
+DEBUG: False
+GROUP: 'masked_dsunet_s1s2_gamma'
+
+AUGMENTATION:
+  GAMMA_CORRECTION: True

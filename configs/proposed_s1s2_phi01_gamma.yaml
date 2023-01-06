@@ -1,0 +1,6 @@
+_BASE_: "proposed_s1s2_phi01.yaml"
+DEBUG: False
+GROUP: 'proposed_s1s2_phi01_gamma'
+
+AUGMENTATION:
+  GAMMA_CORRECTION: True
