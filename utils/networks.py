@@ -8,8 +8,10 @@ from pathlib import Path
 
 from utils import experiment_manager
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def create_network(cfg):
+
+def create_network(cfg: experiment_manager.CfgNode):
     if cfg.MODEL.TYPE == 'unet':
         model = UNet(cfg)
     elif cfg.MODEL.TYPE == 'dualstreamunet':
@@ -18,6 +20,8 @@ def create_network(cfg):
         model = DualStreamUNetPlus(cfg)
     elif cfg.MODEL.TYPE == 'reconstructionnet_v1':
         model = ReconstructionNetV1(cfg)
+    elif cfg.MODEL.TYPE == 'reconstructionnet_v1_finetuned':
+        model = ReconstructionNetV1Finetuned(cfg)
     else:
         raise Exception(f'Unknown network ({cfg.MODEL.TYPE}).')
     return nn.DataParallel(model)
@@ -222,6 +226,62 @@ class ReconstructionNetV1(nn.Module):
             out = self.outc(x_out)
             return out
 
+
+class ReconstructionNetV1Finetuned(nn.Module):
+    def __init__(self, cfg):
+        super(ReconstructionNetV1Finetuned, self).__init__()
+        self.cfg = cfg
+        self.requires_missing_modality = True
+        topology = cfg.MODEL.TOPOLOGY
+
+        # stream 1 (S1)
+        branch_cfg = experiment_manager.setup_cfg_manual(cfg.MODEL.PRETRAINED_BRANCH, Path(cfg.PATHS.OUTPUT),
+                                                         Path(cfg.PATHS.DATASET))
+        pretrained_branch, *_ = load_checkpoint(None, branch_cfg, device, best_val=True)
+        if cfg.MODEL.FREEZE_PRETRAINED_BRANCH:
+            for param in pretrained_branch.module.parameters():
+                param.requires_grad = False
+        self.inc_s1 = pretrained_branch.module.inc
+        self.encoder_s1 = pretrained_branch.module.encoder
+        self.decoder_s1 = pretrained_branch.module.decoder
+
+        # stream 2 (S2)
+        self.inc_s2 = InConv(len(cfg.DATALOADER.S2_BANDS), topology[0], DoubleConv)
+        self.encoder_s2 = Encoder(cfg)
+        self.decoder_s2 = Decoder(cfg)
+
+        self.inc_recon = InConv(len(cfg.DATALOADER.S1_BANDS), topology[0], DoubleConv)
+        self.encoder_recon = Encoder(cfg)
+        self.decoder_recon = Decoder(cfg)
+
+        self.outc = OutConv(2 * topology[0], 1)
+
+
+    def forward(self, x_s1: torch.Tensor, x_s2: torch.Tensor, missing_modality: torch.tensor) -> tuple:
+        # stream1 (S1)
+        features_s1 = self.inc_s1(x_s1)
+        features_s1 = self.encoder_s1(features_s1)
+        features_s1 = self.decoder_s1(features_s1)
+
+        # stream2 (S2)
+        features_s2 = self.inc_s2(x_s2)
+        features_s2 = self.encoder_s2(features_s2)
+        features_s2 = self.decoder_s2(features_s2)
+
+        # reconstruction S2 features from S1 input
+        features_recon = self.inc_recon(x_s1)
+        features_recon = self.encoder_s1(features_recon)
+        features_s2_recon = self.decoder_s1(features_recon)
+
+        if self.training:
+            return features_s1, features_s2, features_s2_recon
+        else:
+            # replacing the s2 features for missing modality samples with the reconstructed features
+            if missing_modality.any():
+                features_s2[missing_modality] = features_s2_recon
+            x_out = torch.concat((features_s1, features_s2), dim=1)
+            out = self.outc(x_out)
+            return out
 
 class Encoder(nn.Module):
     def __init__(self, cfg):

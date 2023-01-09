@@ -1,0 +1,11 @@
+_BASE_: "base.yaml"
+DEBUG: False
+GROUP: 'proposed_s1s2_phi01_finetuning'
+
+MODEL:
+  TYPE: 'reconstructionnet_v1_finetuned'
+  PRETRAINED_BRANCH: 'unet_s1_r2'
+  FREEZE_PRETRAINED_BRANCH: True
+
+RECONSTRUCTION_TRAINER:
+  PHI: 0.1

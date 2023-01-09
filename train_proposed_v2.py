@@ -48,8 +48,6 @@ def run_training(cfg: experiment_manager.CfgNode):
     scaler = torch.cuda.amp.GradScaler()
     clip = 1
 
-    # x_s1_ref = None
-
     for epoch in range(1, epochs + 1):
         print(f'Starting epoch {epoch}/{epochs}.')
 
@@ -63,8 +61,6 @@ def run_training(cfg: experiment_manager.CfgNode):
             optimizer.zero_grad()
 
             x_s1 = batch['x_s1'].to(device)
-            # if i == 0:
-            #     x_s1_ref = x_s1[0]
             x_s2 = batch['x_s2'].to(device)
             y = batch['y'].to(device)
             missing_modality = batch['missing_modality']
@@ -108,15 +104,6 @@ def run_training(cfg: experiment_manager.CfgNode):
 
             scaler.step(optimizer)
             scaler.update()
-
-            # assert that s1 branch does not change
-            # print(f'{global_step} - {torch.sum(x_s1_ref).item()}')
-            # ref_features_s1 = net.module.inc_s1(x_s1_ref.unsqueeze(0))
-            # print(torch.sum(ref_features_s1).item())
-            # ref_features_s1 = net.module.encoder_s1(ref_features_s1)
-            # print(torch.sum(ref_features_s1).item())
-            # ref_features_s1 = net.module.decoder_s1(ref_features_s1)
-            # print(torch.sum(ref_features_s1).item())
 
             loss_set.append(loss.item())
 
@@ -176,6 +163,7 @@ def run_training(cfg: experiment_manager.CfgNode):
         _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step, early_stopping=True)
         _ = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step, early_stopping=True)
         _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step, early_stopping=True)
+
 
 if __name__ == '__main__':
     args = parsers.training_argument_parser().parse_known_args()[0]
