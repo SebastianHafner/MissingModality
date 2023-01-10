@@ -2,6 +2,9 @@ _BASE_: "base.yaml"
 DEBUG: False
 GROUP: 'masked_mmtmdsunet_s1s2'
 
+LOGGING:
+  BATCH_SIZE: 1
+
 MODEL:
   BATCH_SIZE: 2
   TYPE: 'mmtmdualstreamunet'
