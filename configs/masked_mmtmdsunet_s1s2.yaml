@@ -1,0 +1,11 @@
+_BASE_: "base.yaml"
+DEBUG: False
+GROUP: 'masked_mmtmdsunet_s1s2'
+
+MODEL:
+  TYPE: 'mmtmdualstreamunet'
+  DUAL_LOSS: True
+
+DATALOADER:
+  INPUT_MODE: 's1s2'
+  INCLUDE_INCOMPLETE: True

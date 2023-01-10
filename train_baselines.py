@@ -65,7 +65,10 @@ def run_training(cfg: experiment_manager.CfgNode):
             else:
                 logits = net(x_s1, x_s2)
 
-            loss = criterion(logits, y)
+            if cfg.MODEL.DUAL_LOSS:
+                loss = criterion(logits[0], y) + criterion(logits[1], y)
+            else:
+                loss = criterion(logits, y)
             loss.backward()
             optimizer.step()
 

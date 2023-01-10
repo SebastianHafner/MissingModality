@@ -67,7 +67,8 @@ def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, max_sampl
     m_complete, m_incomplete, m_all = Measurer('fullmodality'), Measurer('missingmodality'), Measurer('all')
 
     ds = datasets.SpaceNet7S1S2Dataset(cfg, run_type, no_augmentations=True)
-    dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
+    dataloader = torch_data.DataLoader(ds, batch_size=cfg.LOGGING.BATCH_SIZE, num_workers=0, shuffle=False,
+                                       drop_last=False)
 
     max_samples = len(ds) if max_samples is None or max_samples > len(ds) else max_samples
     samples_counter = 0
@@ -84,7 +85,10 @@ def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, max_sampl
                 logits = net(x_s1, x_s2, torch.tensor([missing_modality]))
             else:
                 logits = net(x_s1, x_s2)
-            y_hat = torch.sigmoid(logits).detach()
+            if cfg.MODEL.DUAL_LOSS:
+                y_hat = ((torch.sigmoid(logits[0]) + torch.sigmoid(logits[0])) / 2).detach()
+            else:
+                y_hat = torch.sigmoid(logits).detach()
 
             complete_modality = torch.logical_not(missing_modality)
 

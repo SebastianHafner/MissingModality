@@ -1,2 +1,3 @@
 _BASE_: "masked_mmtmdsunet_s1s2.yaml"
-DEBUG: True
+SEED: 5
+DEBUG: False

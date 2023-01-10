@@ -22,6 +22,8 @@ def create_network(cfg: experiment_manager.CfgNode):
         model = ReconstructionNetV1(cfg)
     elif cfg.MODEL.TYPE == 'reconstructionnet_v1_finetuned':
         model = ReconstructionNetV1Finetuned(cfg)
+    elif cfg.MODEL.TYPE == 'mmtmdualstreamunet':
+        model = MMTM_DSUNet(cfg)
     else:
         raise Exception(f'Unknown network ({cfg.MODEL.TYPE}).')
     return nn.DataParallel(model)
@@ -256,7 +258,6 @@ class ReconstructionNetV1Finetuned(nn.Module):
 
         self.outc = OutConv(2 * topology[0], 1)
 
-
     def forward(self, x_s1: torch.Tensor, x_s2: torch.Tensor, missing_modality: torch.tensor) -> tuple:
         # stream1 (S1)
         features_s1 = self.inc_s1(x_s1)
@@ -282,6 +283,194 @@ class ReconstructionNetV1Finetuned(nn.Module):
             x_out = torch.concat((features_s1, features_s2), dim=1)
             out = self.outc(x_out)
             return out
+
+
+class MMTM_DSUNet(nn.Module):
+    def __init__(self, cfg: experiment_manager.CfgNode):
+        super(MMTM_DSUNet, self).__init__()
+
+        self.cfg = cfg
+        self.requires_missing_modality = False
+
+        self.inc_s1 = InConv(len(cfg.DATALOADER.S1_BANDS), 64, DoubleConv)
+        self.inc_s2 = InConv(len(cfg.DATALOADER.S2_BANDS), 64, DoubleConv)
+
+        self.mmtm1 = self.mmtm1 = MMTM(64, 64)
+
+        self.max1_s1 = nn.MaxPool2d(2)
+        self.max1_s2 = nn.MaxPool2d(2)
+
+        self.conv1_s1 = DoubleConv(64, 128)
+        self.conv1_s2 = DoubleConv(64, 128)
+
+        self.mmtm2 = MMTM(128, 128)
+
+        self.max2_s1 = nn.MaxPool2d(2)
+        self.max2_s2 = nn.MaxPool2d(2)
+
+        self.conv2_s1 = DoubleConv(128, 128)
+        self.conv2_s2 = DoubleConv(128, 128)
+
+        self.mmtm3 = MMTM(128, 128)
+
+        self.up1_s1 = nn.ConvTranspose2d(128, 128, (2, 2), stride=(2, 2))
+        self.up1_s2 = nn.ConvTranspose2d(128, 128, (2, 2), stride=(2, 2))
+
+        self.conv3_s1 = DoubleConv(256, 64)
+        self.conv3_s2 = DoubleConv(256, 64)
+
+        self.mmtm4 = MMTM(64, 64)
+
+        self.up2_s1 = nn.ConvTranspose2d(64, 64, (2, 2), stride=(2, 2))
+        self.up2_s2 = nn.ConvTranspose2d(64, 64, (2, 2), stride=(2, 2))
+
+        self.conv4_s1 = DoubleConv(128, 64)
+        self.conv4_s2 = DoubleConv(128, 64)
+
+        self.outc_s1 = OutConv(64, 1)
+        self.outc_s2 = OutConv(64, 1)
+
+        self.mmtm_units = [self.mmtm1, self.mmtm2, self.mmtm3, self.mmtm4]
+
+    def forward(self, x_s1: torch.tensor, x_s2: torch.tensor, rec_mmtm_squeeze: bool = False,
+                mmtm_off: bool = False):
+        mmtm_kwargs = {
+            'turnoff_cross_modal_flow': True if mmtm_off else False,
+            'rec_mmtm_squeeze': rec_mmtm_squeeze,
+        }
+
+        features_s1 = self.inc_s1(x_s1)
+        features_s2 = self.inc_s2(x_s2)
+
+        features_s1, features_s2 = self.mmtm1(features_s1, features_s2, **mmtm_kwargs)
+        skip1_s1, skip1_s2 = features_s1, features_s2
+
+        features_s1 = self.max1_s1(features_s1)
+        features_s1 = self.conv1_s1(features_s1)
+        features_s2 = self.max1_s2(features_s2)
+        features_s2 = self.conv1_s2(features_s2)
+
+        features_sar, features_opt = self.mmtm2(features_s1, features_s2, **mmtm_kwargs)
+        skip2_s1, skip2_s2 = features_s1, features_s2
+
+        features_s1 = self.max2_s1(features_s1)
+        features_s1 = self.conv2_s1(features_s1)
+        features_s2 = self.max2_s2(features_s2)
+        features_s2 = self.conv2_s2(features_s2)
+
+        features_s1, features_s2 = self.mmtm3(features_s1, features_s2, **mmtm_kwargs)
+
+        features_s1 = self.up1_s1(features_s1)
+        diffY = skip2_s1.detach().size()[2] - features_s1.detach().size()[2]
+        diffX = skip2_s1.detach().size()[3] - features_s1.detach().size()[3]
+        features_s1 = F.pad(features_s1, (diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2))
+        features_s1 = torch.cat([skip2_s1, features_s1], dim=1)
+        features_s1 = self.conv3_s1(features_s1)
+
+        features_s2 = self.up1_s2(features_s2)
+        features_s2 = F.pad(features_s2, (diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2))
+        features_s2 = torch.cat([skip2_s2, features_s2], dim=1)
+        features_s2 = self.conv3_s2(features_s2)
+
+        features_s1, features_s2 = self.mmtm4(features_s1, features_s2, **mmtm_kwargs)
+
+        features_s1 = self.up2_s1(features_s1)
+        diffY = skip1_s1.detach().size()[2] - features_s1.detach().size()[2]
+        diffX = skip1_s1.detach().size()[3] - features_s1.detach().size()[3]
+        features_s1 = F.pad(features_s1, (diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2))
+        features_s1 = torch.cat([skip1_s1, features_s1], dim=1)
+        features_s1 = self.conv4_s1(features_s1)
+
+        features_s2 = self.up2_s2(features_s2)
+        features_s2 = F.pad(features_s2, (diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2))
+        features_s2 = torch.cat([skip1_s2, features_s2], dim=1)
+        features_s2 = self.conv4_s2(features_s2)
+
+        out_s1 = self.outc_s1(features_s1)
+        out_s2 = self.outc_s2(features_s2)
+        return out_s1, out_s2
+
+    def mmtm_squeeze_features_recorded(self):
+        return torch.all(torch.tensor([mmtm.avg_squeeze_recorded() for mmtm in self.mmtm_units]))
+
+
+class MMTM(nn.Module):
+    def __init__(self, dim_s1, dim_s2):
+        super(MMTM, self).__init__()
+
+        dim = dim_s1 + dim_s2
+        dim_out = int(2 * dim)
+
+        self.ravg_out_s1 = torch.zeros(dim_s1).to(device)
+        self.ravg_out_s2 = torch.zeros(dim_s2).to(device)
+        self.step = 0
+
+        self.ravg_squeeze_s1 = nn.Parameter(torch.zeros((1, dim_s1), requires_grad=False))
+        self.ravg_squeeze_s2 = nn.Parameter(torch.zeros((1, dim_s2), requires_grad=False))
+        self.rec_step = 0
+
+        self.fc_squeeze = nn.Linear(dim, dim_out)
+
+        self.fc_s1 = nn.Linear(dim_out, dim_s1)
+        self.fc_s2 = nn.Linear(dim_out, dim_s2)
+
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, features_s1: torch.tensor, features_s2: torch.tensor, turnoff_cross_modal_flow: bool = False,
+                rec_mmtm_squeeze: bool = False):
+
+        tview_s1 = features_s1.view(features_s1.shape[:2] + (-1,))
+        squeeze_s1 = torch.mean(tview_s1, dim=-1)
+
+        tview_s2 = features_s2.view(features_s2.shape[:2] + (-1,))
+        squeeze_s2 = torch.mean(tview_s2, dim=-1)
+
+        if rec_mmtm_squeeze:
+            ravg_squeeze_s1 = (squeeze_s1.mean(0) + self.ravg_squeeze_s1 * self.rec_step) / (self.rec_step + 1)
+            self.ravg_squeeze_s1 = nn.Parameter(ravg_squeeze_s1.detach())
+            ravg_squeeze_s2 = (squeeze_s2.mean(0) + self.ravg_squeeze_s2 * self.rec_step) / (self.rec_step + 1)
+            self.ravg_squeeze_s2 = nn.Parameter(ravg_squeeze_s2.detach())
+            self.rec_step += 1
+
+        if not turnoff_cross_modal_flow:
+            squeeze = torch.cat((squeeze_s1, squeeze_s2), 1)
+            excitation = self.fc_squeeze(squeeze)
+            excitation = self.relu(excitation)
+            s1_out = self.fc_s1(excitation)
+            s2_out = self.fc_s2(excitation)
+        else:
+            ravg_squeeze_s2 = self.ravg_squeeze_s2.expand(features_s1.shape[0], -1)
+            squeeze_unimodal_s1 = torch.cat([squeeze_s1, ravg_squeeze_s2], 1)
+            excitation_unimodal_s1 = self.relu(self.fc_squeeze(squeeze_unimodal_s1))
+            s1_out = self.fc_s1(excitation_unimodal_s1)
+
+            ravg_squeeze_s1 = self.ravg_squeeze_s1.expand(features_s2.shape[0], -1)
+            squeeze_unimodal_s2 = torch.cat([ravg_squeeze_s1, squeeze_s2], 1)
+            excitation_unimodal_s2 = self.relu(self.fc_squeeze(squeeze_unimodal_s2))
+            s2_out = self.fc_s2(excitation_unimodal_s2)
+
+        s1_out = self.sigmoid(s1_out)
+        s2_out = self.sigmoid(s2_out)
+
+        # running average weights of output
+        self.ravg_out_s1 = (s1_out.mean(0) + self.ravg_out_s1 * self.step).detach() / (self.step + 1)
+        self.ravg_out_s2 = (s2_out.mean(0) + self.ravg_out_s2 * self.step).detach() / (self.step + 1)
+        self.step += 1
+
+        # matching the shape of the excitation signals to the input features for recalibration
+        # (B, C) -> (B, C, H, W)
+        s1_out = s1_out.view(s1_out.shape + (1,) * (len(features_s1.shape) - len(s1_out.shape)))
+        s2_out = s2_out.view(s2_out.shape + (1,) * (len(features_s2.shape) - len(s2_out.shape)))
+
+        return features_s1 * s1_out, features_s2 * s2_out
+
+    def avg_squeeze_recorded(self):
+        if torch.sum(self.ravg_squeeze_s1) + torch.sum(self.ravg_squeeze_s2) == 0:
+            return False
+        else:
+            return True
+
 
 class Encoder(nn.Module):
     def __init__(self, cfg):
