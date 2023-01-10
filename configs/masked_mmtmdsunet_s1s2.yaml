@@ -3,7 +3,7 @@ DEBUG: False
 GROUP: 'masked_mmtmdsunet_s1s2'
 
 MODEL:
-  BATCH_SIZE: 8
+  BATCH_SIZE: 2
   TYPE: 'mmtmdualstreamunet'
   DUAL_LOSS: True
 
