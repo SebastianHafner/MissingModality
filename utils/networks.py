@@ -401,13 +401,13 @@ class MMTM(nn.Module):
         dim = dim_s1 + dim_s2
         dim_out = int(2 * dim)
 
-        self.ravg_out_s1 = torch.zeros(dim_s1).to(device)
-        self.ravg_out_s2 = torch.zeros(dim_s2).to(device)
-        self.step = 0
+        # self.ravg_out_s1 = torch.zeros(dim_s1).to(device)
+        # self.ravg_out_s2 = torch.zeros(dim_s2).to(device)
+        # self.step = 0
 
-        self.ravg_squeeze_s1 = nn.Parameter(torch.zeros((1, dim_s1), requires_grad=False))
-        self.ravg_squeeze_s2 = nn.Parameter(torch.zeros((1, dim_s2), requires_grad=False))
-        self.rec_step = 0
+        # self.ravg_squeeze_s1 = nn.Parameter(torch.zeros((1, dim_s1), requires_grad=False))
+        # self.ravg_squeeze_s2 = nn.Parameter(torch.zeros((1, dim_s2), requires_grad=False))
+        # self.rec_step = 0
 
         self.fc_squeeze = nn.Linear(dim, dim_out)
 
@@ -426,37 +426,37 @@ class MMTM(nn.Module):
         tview_s2 = features_s2.view(features_s2.shape[:2] + (-1,))
         squeeze_s2 = torch.mean(tview_s2, dim=-1)
 
-        if rec_mmtm_squeeze:
-            ravg_squeeze_s1 = (squeeze_s1.mean(0) + self.ravg_squeeze_s1 * self.rec_step) / (self.rec_step + 1)
-            self.ravg_squeeze_s1 = nn.Parameter(ravg_squeeze_s1.detach())
-            ravg_squeeze_s2 = (squeeze_s2.mean(0) + self.ravg_squeeze_s2 * self.rec_step) / (self.rec_step + 1)
-            self.ravg_squeeze_s2 = nn.Parameter(ravg_squeeze_s2.detach())
-            self.rec_step += 1
-
-        if not turnoff_cross_modal_flow:
-            squeeze = torch.cat((squeeze_s1, squeeze_s2), 1)
-            excitation = self.fc_squeeze(squeeze)
-            excitation = self.relu(excitation)
-            s1_out = self.fc_s1(excitation)
-            s2_out = self.fc_s2(excitation)
-        else:
-            ravg_squeeze_s2 = self.ravg_squeeze_s2.expand(features_s1.shape[0], -1)
-            squeeze_unimodal_s1 = torch.cat([squeeze_s1, ravg_squeeze_s2], 1)
-            excitation_unimodal_s1 = self.relu(self.fc_squeeze(squeeze_unimodal_s1))
-            s1_out = self.fc_s1(excitation_unimodal_s1)
-
-            ravg_squeeze_s1 = self.ravg_squeeze_s1.expand(features_s2.shape[0], -1)
-            squeeze_unimodal_s2 = torch.cat([ravg_squeeze_s1, squeeze_s2], 1)
-            excitation_unimodal_s2 = self.relu(self.fc_squeeze(squeeze_unimodal_s2))
-            s2_out = self.fc_s2(excitation_unimodal_s2)
+        # if rec_mmtm_squeeze:
+        #     ravg_squeeze_s1 = (squeeze_s1.mean(0) + self.ravg_squeeze_s1 * self.rec_step) / (self.rec_step + 1)
+        #     self.ravg_squeeze_s1 = nn.Parameter(ravg_squeeze_s1.detach())
+        #     ravg_squeeze_s2 = (squeeze_s2.mean(0) + self.ravg_squeeze_s2 * self.rec_step) / (self.rec_step + 1)
+        #     self.ravg_squeeze_s2 = nn.Parameter(ravg_squeeze_s2.detach())
+        #     self.rec_step += 1
+        #
+        # if not turnoff_cross_modal_flow:
+        squeeze = torch.cat((squeeze_s1, squeeze_s2), 1)
+        excitation = self.fc_squeeze(squeeze)
+        excitation = self.relu(excitation)
+        s1_out = self.fc_s1(excitation)
+        s2_out = self.fc_s2(excitation)
+        # else:
+        #     ravg_squeeze_s2 = self.ravg_squeeze_s2.expand(features_s1.shape[0], -1)
+        #     squeeze_unimodal_s1 = torch.cat([squeeze_s1, ravg_squeeze_s2], 1)
+        #     excitation_unimodal_s1 = self.relu(self.fc_squeeze(squeeze_unimodal_s1))
+        #     s1_out = self.fc_s1(excitation_unimodal_s1)
+        #
+        #     ravg_squeeze_s1 = self.ravg_squeeze_s1.expand(features_s2.shape[0], -1)
+        #     squeeze_unimodal_s2 = torch.cat([ravg_squeeze_s1, squeeze_s2], 1)
+        #     excitation_unimodal_s2 = self.relu(self.fc_squeeze(squeeze_unimodal_s2))
+        #     s2_out = self.fc_s2(excitation_unimodal_s2)
 
         s1_out = self.sigmoid(s1_out)
         s2_out = self.sigmoid(s2_out)
 
         # running average weights of output
-        self.ravg_out_s1 = (s1_out.mean(0) + self.ravg_out_s1 * self.step).detach() / (self.step + 1)
-        self.ravg_out_s2 = (s2_out.mean(0) + self.ravg_out_s2 * self.step).detach() / (self.step + 1)
-        self.step += 1
+        # self.ravg_out_s1 = (s1_out.mean(0) + self.ravg_out_s1 * self.step).detach() / (self.step + 1)
+        # self.ravg_out_s2 = (s2_out.mean(0) + self.ravg_out_s2 * self.step).detach() / (self.step + 1)
+        # self.step += 1
 
         # matching the shape of the excitation signals to the input features for recalibration
         # (B, C) -> (B, C, H, W)
@@ -465,11 +465,11 @@ class MMTM(nn.Module):
 
         return features_s1 * s1_out, features_s2 * s2_out
 
-    def avg_squeeze_recorded(self):
-        if torch.sum(self.ravg_squeeze_s1) + torch.sum(self.ravg_squeeze_s2) == 0:
-            return False
-        else:
-            return True
+    # def avg_squeeze_recorded(self):
+    #     if torch.sum(self.ravg_squeeze_s1) + torch.sum(self.ravg_squeeze_s2) == 0:
+    #         return False
+    #     else:
+    #         return True
 
 
 class Encoder(nn.Module):
