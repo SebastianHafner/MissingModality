@@ -27,7 +27,7 @@ class AbstractSpaceNet7S1S2Dataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         pass
 
-    def _load_s1_img(self, aoi_id: str, year: int, month: int, padding: bool = False) -> np.ndarray:
+    def _load_s1_img(self, aoi_id: str, year: int, month: int, padding: bool = True) -> np.ndarray:
         file = self.root_path / 'train' / aoi_id / 'sentinel1' / f'sentinel1_{aoi_id}_{year}_{month:02d}.tif'
         img, _, _ = geofiles.read_tif(file)
         img = np.clip(img[:, :, self.s1_band_indices], 0, 1)
@@ -35,7 +35,7 @@ class AbstractSpaceNet7S1S2Dataset(torch.utils.data.Dataset):
             img = self.pad(img)
         return np.nan_to_num(img).astype(np.float32)
 
-    def _load_s2_img(self, aoi_id: str, year: int, month: int, padding: bool = False) -> np.ndarray:
+    def _load_s2_img(self, aoi_id: str, year: int, month: int, padding: bool = True) -> np.ndarray:
         file = self.root_path / 'train' / aoi_id / 'sentinel2' / f'sentinel2_{aoi_id}_{year}_{month:02d}.tif'
         img, _, _ = geofiles.read_tif(file)
         img = np.clip(img[:, :, self.s2_band_indices], 0, 1)
@@ -43,7 +43,7 @@ class AbstractSpaceNet7S1S2Dataset(torch.utils.data.Dataset):
             img = self.pad(img)
         return np.nan_to_num(img).astype(np.float32)
 
-    def _load_building_label(self, aoi_id: str, year: int, month: int, padding: bool = False) -> np.ndarray:
+    def _load_building_label(self, aoi_id: str, year: int, month: int, padding: bool = True) -> np.ndarray:
         file = self.root_path / 'train' / aoi_id / 'labels_raster' /\
                f'global_monthly_{year}_{month:02d}_mosaic_{aoi_id}_Buildings.tif'
         label, _, _ = geofiles.read_tif(file)
@@ -63,7 +63,7 @@ class AbstractSpaceNet7S1S2Dataset(torch.utils.data.Dataset):
         _, transform, crs = geofiles.read_tif(file)
         return transform, crs
 
-    def load_s2_rgb(self, aoi_id: str, year: int, month: int, padding: bool = False) -> np.ndarray:
+    def load_s2_rgb(self, aoi_id: str, year: int, month: int, padding: bool = True) -> np.ndarray:
         file = self.root_path / 'train' / aoi_id / 'sentinel2' / f'sentinel2_{aoi_id}_{year}_{month:02d}.tif'
         img, _, _ = geofiles.read_tif(file)
         img = np.clip(img[:, :, [2, 1, 0]] / 0.3, 0, 1)
