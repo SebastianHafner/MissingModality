@@ -350,7 +350,7 @@ class MMTM_DSUNet(nn.Module):
         features_s2 = self.max1_s2(features_s2)
         features_s2 = self.conv1_s2(features_s2)
 
-        features_sar, features_opt = self.mmtm2(features_s1, features_s2, **mmtm_kwargs)
+        features_s1, features_s2 = self.mmtm2(features_s1, features_s2, **mmtm_kwargs)
         skip2_s1, skip2_s2 = features_s1, features_s2
 
         features_s1 = self.max2_s1(features_s1)
@@ -390,8 +390,8 @@ class MMTM_DSUNet(nn.Module):
         out_s2 = self.outc_s2(features_s2)
         return out_s1, out_s2
 
-    def mmtm_squeeze_features_recorded(self):
-        return torch.all(torch.tensor([mmtm.avg_squeeze_recorded() for mmtm in self.mmtm_units]))
+    # def mmtm_squeeze_features_recorded(self):
+    #     return torch.all(torch.tensor([mmtm.avg_squeeze_recorded() for mmtm in self.mmtm_units]))
 
 
 class MMTM(nn.Module):
