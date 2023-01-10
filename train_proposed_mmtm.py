@@ -71,17 +71,34 @@ def run_training(cfg: experiment_manager.CfgNode):
 
             complete_modality = torch.logical_not(missing_modality)
             if complete_modality.any():
-                features_fusion = torch.concat((features_s1, features_s2), dim=1)
-                logits_complete = net.module.outc(features_fusion[complete_modality])
-                sup_complete_loss = sup_criterion(logits_complete, y[complete_modality])
+                # supervised loss
+                features_s1_recal, features_s2_recal, *_ = net.modlue.fusion_module(features_s1, features_s2)
+                logits_complete_s1 = net.module.outc_s1(features_s1_recal[complete_modality])
+                logits_complete_s2 = net.module.outc_s2(features_s2_recal[complete_modality])
+                sup_complete_loss = sup_criterion(logits_complete_s1, y[complete_modality]) + sup_criterion(
+                    logits_complete_s2, y[complete_modality])
                 sup_complete_loss_set.append(sup_complete_loss.item())
-                sim_loss = sim_criterion(features_s2[complete_modality], features_s2_recon[complete_modality])
+
+                # similarity loss
+                squeeze_s2 = torch.mean(features_s2.view(features_s2.shape[:2] + (-1,)), dim=-1)
+                squeeze_s2_recon = torch.mean(features_s2_recon.view(features_s2_recon.shape[:2] + (-1,)), dim=-1)
+                sim_loss = sim_criterion(squeeze_s2[complete_modality], squeeze_s2_recon[complete_modality])
                 sim_loss = phi * sim_loss
                 sim_loss_set.append(sim_loss.item())
 
+            squeeze_s1 = torch.mean(features_s1.view(features_s1.shape[:2] + (-1,)), dim=-1)
+            squeeze_s2 = torch.mean(features_s2.view(features_s2.shape[:2] + (-1,)), dim=-1)
+            features_s1_recal, features_s2_recal, *_ = net.modlue.fusion_module(squeeze_s1, squeeze_s2,
+                                                                                disable_avgpool=True)
+            logits_incomplete_s1 = net.module.outc_s1(features_s1_recal[missing_modality])
+
+
+
+            logits_complete_s2 = net.module.outc_s2(features_s2_recal[missing_modality])
+
             features_fusion = torch.concat((features_s1, features_s2_recon), dim=1)
-            logits_incomplete = net.module.outc(features_fusion[missing_modality])
-            sup_incomplete_loss = sup_criterion(logits_incomplete, y[missing_modality])
+            logits_incomplete_s1 = net.module.outc(features_fusion[missing_modality])
+            sup_incomplete_loss = sup_criterion(logits_incomplete_s1, y[missing_modality])
             sup_incomplete_loss_set.append(sup_incomplete_loss.item())
 
             if sup_complete_loss is None:

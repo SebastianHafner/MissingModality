@@ -1,4 +1,4 @@
-_BASE_: "base.yaml"
+_BASE_: "proposed_s1s2.yaml"
 DEBUG: False
 GROUP: 'proposed_s1s2_phi01_finetuning'
 
