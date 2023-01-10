@@ -6,7 +6,7 @@ LOGGING:
   BATCH_SIZE: 1
 
 MODEL:
-  BATCH_SIZE: 2
+  BATCH_SIZE: 8
   TYPE: 'mmtmdualstreamunet'
   DUAL_LOSS: True
 
