@@ -1,0 +1,9 @@
+_BASE_: "proposed_s1s2_phi01_finetuning_nofreeze.yaml"
+DEBUG: False
+GROUP: 'proposed_s1s2_phi001_finetuning_nofreeze_p10'
+
+EARLY_STOPPING:
+  PATIENCE: 10
+
+RECONSTRUCTION_TRAINER:
+  PHI: 0.001

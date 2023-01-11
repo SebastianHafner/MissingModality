@@ -1,0 +1,6 @@
+_BASE_: "unet_s1.yaml"
+DEBUG: False
+GROUP: 'unet_s1_p10'
+
+EARLY_STOPPING:
+  PATIENCE: 10

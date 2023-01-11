@@ -1,0 +1,6 @@
+_BASE_: "proposed_s1s2_phi001.yaml"
+DEBUG: False
+GROUP: 'proposed_s1s2_phi001_p10'
+
+EARLY_STOPPING:
+  PATIENCE: 10
